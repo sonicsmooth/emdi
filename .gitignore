@@ -70,7 +70,8 @@ Thumbs.db
 # --------
 *.lib
 *.dll
+*.exp
 *.exe
 
 # qt shadow build directories
-/build-*
+*/build-*
