@@ -1,0 +1,27 @@
+emdi is Enhanced MDI
+
+This improves the MDI experience by:
+* Introducing the concept of Main Views and Sub Views
+* Introducing the concept of Document
+* Each Document can have any number of Main Views open across any number of QMainWindows
+* Each QMainWindow can have at most one of any type of Sub View open
+* API user is responsible for ensuring proper model/view coherence
+* Two main classes -- EMDI and DocProfile.
+* EMDI maintains table of Documents, Views, etc., and also:
+*   Duplicating a Main View
+*   Popping out a duplicate Main View into new QMainWindow
+*   Dragging out of a Main View into a new or existing QMainWindow
+*   Maintaining Sub Views associated with a given Document as Main View is popped out or dragged
+*   Closing of Document when all Main Views are closed
+*   Closing of QMainWindow when all its Main Views are closed
+* DocProfile is interface which must be subclassed by API user
+*   OpenDoc, CloseDoc, GetMainView, GetSubview
+* Does not require subclassing QMainWindow or QMDISubWindow
+
+EMDI is used my main to create new main QMainWindows
+A subwindow will be assigned to one ViewType.
+Multiple QWidget *views will then become the content of the subwindow,
+depending on which Document is selected
+
+Try not to replicate state that is already implicit/inherent in Qt system,
+eg which window is active, which are children of which, etc.
