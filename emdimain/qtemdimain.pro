@@ -17,7 +17,7 @@ HEADERS += \
 
 INCLUDEPATH += \
     include \
-    ../qtemdilib/include
+    ../emdilib/include
 
 FORMS += \
     ui/mainwindow.ui
@@ -34,17 +34,17 @@ UI_DIR      = $$DESTDIR/ui
 
 
 CONFIG(debug, debug|release) {
-    LIBS += -L$$PWD/../qtemdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Debug/debug/ -lqtemdilib
+    LIBS += -L$$PWD/../emdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Debug/debug/ -lemdilib
 }
 
 
 CONFIG(release, debug|release) {
-    LIBS += -L$$PWD/../qtemdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Release/release/ -lqtemdilib
+    LIBS += -L$$PWD/../emdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Release/release/ -lemdilib
 }
 
 
-debug:qtemdimain.depends = qtemdilibd
-release:qtemdimain.depends = qtemdilib
+debug:emdimain.depends = emdilib
+release:emdimain.depends = emdilib
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

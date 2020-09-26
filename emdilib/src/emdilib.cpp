@@ -1,8 +1,8 @@
-#include "qtemdilib.h"
+#include "emdilib.h"
 
 #include <QDebug>
 
-Qtemdilib::Qtemdilib()
+Emdilib::Emdilib()
 {
 #if defined(QT_DEBUG)
     qDebug("Hi from lib 456 qt_debug");

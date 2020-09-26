@@ -1,7 +1,7 @@
 QT += core gui
 
 TEMPLATE = lib
-DEFINES += QTEMDILIB_LIBRARY
+DEFINES += EMDILIB_LIBRARY
 
 CONFIG += c++11
 
@@ -10,13 +10,15 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    src/qtemdilib.cpp
+    src/emdilib.cpp
 
 HEADERS += \
-    include/qtemdilib_global.h \
-    include/qtemdilib.h
+    include/emdilib.h \
+    include/emdilib_global.h
 
 INCLUDEPATH += include
+
+TARGET = emdilib
 
 debug:DESTDIR = debug
 release:DESTDIR = release
