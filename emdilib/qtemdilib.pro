@@ -1,9 +1,10 @@
-QT += core gui
+QT += core gui widgets
 
 TEMPLATE = lib
 DEFINES += EMDILIB_LIBRARY
 
 CONFIG += c++11
+#CONFIG += staticlib
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -13,8 +14,10 @@ SOURCES += \
     src/emdilib.cpp
 
 HEADERS += \
+    include/docworker.h \
     include/emdilib.h \
-    include/emdilib_global.h
+    include/emdilib_global.h \
+    include/docworker.h
 
 INCLUDEPATH += include
 

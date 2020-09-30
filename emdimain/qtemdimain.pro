@@ -22,6 +22,8 @@ INCLUDEPATH += \
 FORMS += \
     ui/mainwindow.ui
 
+TARGET = emdimain
+
 debug:   DESTDIR = debug
 release: DESTDIR = release
 
