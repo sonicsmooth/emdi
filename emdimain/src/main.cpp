@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
     std::string file1 = "somefile.txt";
     std::string file2 = "anotherfile.sch";
 
-    auto uptw = std::unique_ptr<TxtWorker>();
-    auto upsw = std::unique_ptr<SchWorker>();
+    auto uptw = std::make_unique<TxtWorker>();
+    auto upsw = std::make_unique<SchWorker>();
 
     emdi.registerWorker(std::move(uptw));
     emdi.registerWorker(std::move(upsw));
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     QMdiArea *mdi = new QMdiArea();
     QTextEdit *te = new QTextEdit();
     subw->setWidget(te);
-    mdi->addSubWindow(subw);10
+    mdi->addSubWindow(subw);
     w.setCentralWidget(mdi);
 
 #if defined(QT_DEBUG)

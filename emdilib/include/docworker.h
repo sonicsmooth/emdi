@@ -7,37 +7,32 @@
 #include <list>
 #include <optional>
 
-class Document {
-public:
-};
+#include<QDebug>
 
-class TxtDocument : public Document {
-
-};
-class SchDocument : public Document {
-
-};
+class Document {};
+class TxtDocument : public Document {};
+class SchDocument : public Document {};
 
 
 class DocWorker {
 public:
     virtual ~DocWorker() = 0;
-    virtual Document openDoc(const std::string &);
+    virtual Document OpenDoc(const std::string &) = 0;
 };
 
 
 class TxtWorker : public DocWorker {
 public:
-     Document openDoc(const std::string &) {
-         return TxtDocument();
-     }
+    TxtWorker();
+    ~TxtWorker();
+    Document OpenDoc(const std::string &);
 };
 
 class SchWorker : public DocWorker {
 public:
-    Document openDoc(const std::string &) {
-        return SchDocument();
-    }
+    SchWorker();
+    ~SchWorker();
+    Document OpenDoc(const std::string &);
 };
 
 #endif

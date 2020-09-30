@@ -1,6 +1,9 @@
 #include "emdilib.h"
 #include "docworker.h"
 
+#include <iostream>
+
+#include <QString>
 #include <QDebug>
 
 Emdi::Emdi() {
@@ -12,12 +15,13 @@ Emdi::Emdi() {
 }
 
 void Emdi::registerWorker(std::unique_ptr<DocWorker> updw) {
-    qDebug("Hi from registerWorker");
+    qDebug("Emdi::registerWorker()");
     m_workers.push_back(std::move(updw));
 }
 
 void Emdi::openDoc(const std::string & name) {
-    for (auto const & worker : m_workers) {
-        auto docopt = worker->openDoc(name);
+    for (const std::unique_ptr<DocWorker> & worker : m_workers) {
+        //std::cout << "what?" << worker.get();
+        auto docopt = worker->OpenDoc(name);
     }
 }
