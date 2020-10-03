@@ -11,6 +11,7 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QtSql>
+#include <QVariant>
 
 Emdi::Emdi() {
 #if defined(QT_DEBUG)
@@ -18,19 +19,7 @@ Emdi::Emdi() {
 #elif defined(QT_NO_DEBUG)
     qDebug("Hi from lib qt_no_debug");
 #endif
-        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "emdiviews");
-        //db.setDatabaseName("file:TheFile.db?mode=memory&cache=shared");
-        db.setDatabaseName("TheFile.db");
-        db.open();
-        QSqlQuery query(db);
-        query.exec("DROP TABLE IF EXISTS views");
-        query.exec("CREATE TABLE views (ID                INTEGER PRIMARY KEY AUTOINCREMENT,"
-                   "                    DocID             TEXT,                             "
-                   "                    ContentType       TEXT,                             "
-                   "                    ParentWidget      INTEGER,                          "
-                   "                    ParentWidgetType  TEXT,                             "
-                   "                    HostWindow        INTEGER)                          ");
-
+    _initDb();
 
 }
 Emdi::~Emdi() {
@@ -43,8 +32,38 @@ Emdi::~Emdi() {
     qDebug("Removed database");
 }
 
-void Emdi::AddHostWindow(QMainWindow *mw) {
+void Emdi::_initDb() {
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "emdiviews");
+    //db.setDatabaseName("file:TheFile.db?mode=memory&cache=shared");
+    db.setDatabaseName("TheFile.db");
+    db.open();
+    QSqlQuery query(db);
+    query.exec("DROP TABLE IF EXISTS views");
+    query.exec("CREATE TABLE views (ID                INTEGER PRIMARY KEY AUTOINCREMENT,"
+               "                    DocID             TEXT,                             "
+               "                    ContentWidget     INTEGER,                          "
+               "                    SubWidget         INTEGER,                          "
+               "                    SubWidgetType     TEXT,                             "
+               "                    MainWindow        INTEGER)                          ");
+}
+
+void Emdi::_addMainWindow(QMainWindow *mw) {
+    QSqlDatabase db = QSqlDatabase::database("emdiviews");
+    QStringList tl = db.tables();
+    if (db.isValid())
+        qDebug("Yes, ees valid");
+    QSqlQuery query(db);
+    query.prepare("INSERT INTO views (MainWindow) VALUES (:mw)");
+    query.bindValue(":mw", reinterpret_cast<qulonglong>(mw));
+    if (!query.exec()) {
+        qDebug("Insert failed");
+        qDebug(query.lastError().text().toLatin1());
+    }
+}
+
+void Emdi::AddMainWindow(QMainWindow *mw) {
     m_hostWindows.push_back(mw);
+    _addMainWindow(mw);
 }
 void Emdi::AddDocument(std::unique_ptr<Document> doc) {
     (void) doc;
