@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "emdilib.h"
-#include "docworker.h"
+#include "documents.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -16,28 +16,21 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     MainWindow w;
+    w.setCentralWidget(nullptr);
+
 
     Emdi emdi;
+    emdi.AddHostWindow(&w);
 
     std::string file1 = "somefile.txt";
     std::string file2 = "anotherfile.sch";
 
-    auto uptw = std::make_unique<TxtWorker>();
-    auto upsw = std::make_unique<SchWorker>();
+    auto doc1 = std::make_unique<TxtDocument>(file1);
+    auto doc2 = std::make_unique<SchDocument>(file2);
 
-    emdi.registerWorker(std::move(uptw));
-    emdi.registerWorker(std::move(upsw));
+    emdi.AddDocument(std::move(doc1));
+    emdi.AddDocument(std::move(doc2));
 
-    emdi.openDoc(file1);
-    emdi.openDoc(file2);
-
-
-    QMdiSubWindow *subw = new QMdiSubWindow();
-    QMdiArea *mdi = new QMdiArea();
-    QTextEdit *te = new QTextEdit();
-    subw->setWidget(te);
-    mdi->addSubWindow(subw);
-    w.setCentralWidget(mdi);
 
 #if defined(QT_DEBUG)
     qDebug("Hi from main qt_debug");
@@ -45,9 +38,7 @@ int main(int argc, char *argv[])
    qDebug("Hi from main qt_no_debug");
 #endif
 
-
-
-
     w.show();
+
     return a.exec();
 }

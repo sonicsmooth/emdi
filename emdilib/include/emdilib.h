@@ -2,7 +2,7 @@
 #define EMDILIB_H
 
 #include "emdilib_global.h"
-#include "docworker.h"
+#include "vdocument.h"
 
 #include <QWidget>
 #include <QMainWindow>
@@ -12,15 +12,17 @@
 #include <memory>
 #include <string>
 
-class DocWorker;
 
 class Emdi {
 private:
-    std::vector<std::unique_ptr<DocWorker> > m_workers;
+    std::vector<QMainWindow *> m_hostWindows;
+    std::vector<std::unique_ptr<Document>> m_docs;
 public:
     Emdi();
-    void registerWorker(std::unique_ptr<DocWorker>);
-    void openDoc(const std::string &);
+    ~Emdi();
+    void AddHostWindow(QMainWindow *);
+    void AddDocument(const std::unique_ptr<Document>);
+
 };
 
 

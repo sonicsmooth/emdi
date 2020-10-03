@@ -1,4 +1,4 @@
-QT += core gui widgets
+QT += core gui widgets sql
 
 TEMPLATE = lib
 DEFINES += EMDILIB_LIBRARY
@@ -11,14 +11,12 @@ CONFIG += staticlib
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    src/docworker.cpp \
     src/emdilib.cpp
 
 HEADERS += \
-    include/docworker.h \
+    include/vdocument.h \
     include/emdilib.h \
     include/emdilib_global.h \
-    include/docworker.h
 
 INCLUDEPATH += include
 
