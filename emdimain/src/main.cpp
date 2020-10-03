@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 
 
     Emdi emdi;
-    emdi.AddHostWindow(&w);
+    emdi.AddMainWindow(&w);
 
     std::string file1 = "somefile.txt";
     std::string file2 = "anotherfile.sch";
