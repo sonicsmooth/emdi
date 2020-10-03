@@ -29,7 +29,12 @@ int main(int argc, char *argv[])
     auto doc2 = std::make_unique<SchDocument>(file2);
 
     emdi.AddDocument(std::move(doc1));
+    emdi.ShowView(file1, "MainView");
+    emdi.ShowView(file1, "SideView");
+
     emdi.AddDocument(std::move(doc2));
+    emdi.ShowView(file2, "MainView");
+    emdi.ShowView(file2, "SideView");
 
 
 #if defined(QT_DEBUG)
