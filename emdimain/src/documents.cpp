@@ -13,15 +13,20 @@ TxtDocument::~TxtDocument() {
     qDebug("TxtDocument::~TxtDocument()");
 }
 
-QWidget *TxtDocument::OpenView(const std::string & viewType) {
+QWidget *TxtDocument::OpenView(const std::string & viewType) const {
     (void) viewType;
     qDebug("TxtDocument::OpenView(...)");
-    if (viewType == "MainView")
-        return new QTextEdit("Hi from main TxtDocument");
-    else if (viewType == "SideView")
-        return new QTextEdit("Hi from side TxtDocument");
+    if (viewType == "Schematic")
+        return new QTextEdit("Hi from main TxtDocument Schematic");
+    else if (viewType == "SymView")
+        return new QTextEdit("Hi from side TxtDocument SymView");
+    else if (viewType == "Properties")
+        return new QTextEdit("Hi from side TxtDocument Properties");
     else
         return nullptr;
+}
+const std::string & TxtDocument::docId() const {
+    return m_docId;
 }
 
 
@@ -35,13 +40,18 @@ SchDocument::SchDocument(const std::string & docId) :
 SchDocument::~SchDocument() {
     qDebug("SchDocument::~SchDocument()");
 }
-QWidget *SchDocument::OpenView(const std::string & viewType) {
+QWidget *SchDocument::OpenView(const std::string & viewType) const {
     (void) viewType;
     qDebug("SchDocument::OpenView");
-    if (viewType == "MainView")
-        return new QTextEdit("Hi from main SchDocument");
-    else if (viewType == "SideView")
-        return new QTextEdit("Hi from side SchDocument");
+    if (viewType == "Schematic")
+        return new QTextEdit("Hi from main SchDocument Schematic");
+    else if (viewType == "SymView")
+        return new QTextEdit("Hi from side SchDocument SymView");
+    else if (viewType == "Properties")
+        return new QTextEdit("Hi from side SchDocument Properties");
     else
         return nullptr;
+}
+const std::string & SchDocument::docId() const {
+    return m_docId;
 }

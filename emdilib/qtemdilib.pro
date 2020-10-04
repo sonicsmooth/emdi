@@ -14,9 +14,9 @@ SOURCES += \
     src/emdilib.cpp
 
 HEADERS += \
-    include/vdocument.h \
     include/emdilib.h \
-    include/emdilib_global.h \
+    include/emdilib_global.h \ \
+    include/vdocument.h
 
 INCLUDEPATH += include
 
