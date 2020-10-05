@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
     auto doc1 = std::make_unique<TxtDocument>(file1);
     auto doc2 = std::make_unique<SchDocument>(file2);
 
+    // TODO: Retrieve document frameTypes 
     emdi.AddDocument(std::move(doc1));
     emdi.ShowView(file1, "Schematic", WidgetType::MDI);
     emdi.ShowView(file1, "Properties", WidgetType::Dock);

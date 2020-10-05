@@ -13,31 +13,39 @@
 #include <string>
 
 struct ConnView {
-    uint32_t     ID;
-    std::string  docID;
-    Document     *document;
-    QWidget      *contentWidget;    // eg QTextEdit, QModelView
-    QWidget      *subWidget;        // ie QMDISubWindow, QDockWidget
-    std::string  subWidgetType;     // ie MDISubWindow, DockWidget
-    QMainWindow  *mainWindow;      // ie QMainWindow
+    unsigned int      ID;
+    std::string docName;
+    Document    *document;
+    QWidget     *docWidget;    // eg QTextEdit, QModelView
+    std::string frameType; // ie QMDISubWindow, QDockWidget
+    std::string frameAttach; // ie MDISubWindow, DockWidget
+    QWidget     *subWidget;    // ie QMDISubWindow, QDockWidget
+    QMainWindow *mainWindow;   // ie QMainWindow
 };
 
 enum class WidgetType {MDI, Dock};
 
+template<typename T>
+T *_ptr(const QVariant &);
+unsigned int _uint(const QVariant &);
+std::string _str(const QVariant &);
 
 class Emdi {
 private:
     std::vector<std::unique_ptr<Document>> m_docs;
-    void _initDb();
-    void _addMainWindow(QMainWindow *);
-    QMainWindow * _latestMainWindow() const;
     const Document * _findDocument(const std::string &) const;
+    void _initDb();
+    void _addMainWindow(const QMainWindow *);
+    void _addConnView(const ConnView &);
+    QMainWindow * _latestMainWindow() const;
+    ConnView _findRecord(const std::string & field, const std::string & value);
+    //ConnView _attachDocToDock(int ID, )
 public:
     Emdi();
     ~Emdi();
-    void AddMainWindow(QMainWindow *);
+    void AddMainWindow(const QMainWindow *);
     void AddDocument(const std::unique_ptr<Document>);
-    void ShowView(const std::string & docId, const std::string & viewType, WidgetType);
+    void ShowView(const std::string & docId, const std::string & frameType, WidgetType);
 
 };
 
