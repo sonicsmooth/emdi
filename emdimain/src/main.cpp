@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 
 
     Emdi emdi;
+    return 0;
     emdi.AddMainWindow(&w);
 
     std::string file1 = "somefile.txt";

@@ -42,13 +42,13 @@ Emdi::Emdi() {
 
 }
 Emdi::~Emdi() {
-    qDebug("Emdi::~Emdi");
+    //qDebug("Emdi::~Emdi");
     {
-        QSqlDatabase db = QSqlDatabase::database("connname");
+        QSqlDatabase db = QSqlDatabase::database("connviews");
         db.close();
     }
-    QSqlDatabase::removeDatabase("connname");
-    qDebug("Removed database");
+    QSqlDatabase::removeDatabase("connviews");
+    //qDebug("Removed database");
 }
 
 const Document *Emdi::_findDocument(const std::string & docName) const {
@@ -64,26 +64,39 @@ const Document *Emdi::_findDocument(const std::string & docName) const {
 }
 
 void Emdi::_initDb() {
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "emdiviews");
-    //db.setDatabaseName("file:TheFile.db?mode=memory&cache=shared");
-    db.setDatabaseName("TheFile.db");
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "connviews");
+    db.setDatabaseName("TheOtherFile.db");
     db.open();
     QSqlQuery query(db);
-    query.exec("DROP TABLE IF EXISTS views");
-    query.exec("CREATE TABLE views (ID                INTEGER PRIMARY KEY AUTOINCREMENT,"
-               "                    docName           TEXT,                             "
-               "                    docPtr            INTEGER,                          "
-               "                    docWidgetPtr      INTEGER,                          "
-               "                    frameType     TEXT,                             "
-               "                    framePtr      INTEGER,                          "
-               "                    frameAttach     TEXT,                             "
-               "                    mainWindowPtr     INTEGER)                          ");
+    query.exec("DROP TABLE IF EXISTS views;                                                  ");
+    query.exec("DROP TABLE IF EXISTS docs;                                                   ");
+    query.exec("DROP TABLE IF EXISTS docWidgets;                                             ");
+    query.exec("DROP TABLE IF EXISTS frames;                                                 ");
+    query.exec("DROP TABLE IF EXISTS mainWindows;                                            ");
+    query.exec("CREATE TABLE docs        (ID          INTEGER PRIMARY KEY AUTOINCREMENT,       "
+               "                          name        TEXT,                                    "
+               "                          ptr         INTEGER);                                ");
+               
+    query.exec("CREATE TABLE docWidgets  (ID          INTEGER PRIMARY KEY AUTOINCREMENT,       "
+               "                          ptr         INTEGER,                                 "
+               "                          docId       REFERENCES docs(ID));                    ");
+
+    query.exec("CREATE TABLE frames      (ID          INTEGER PRIMARY KEY AUTOINCREMENT,       "
+               "                          userType    TEXT,                                    "
+               "                          ptr         INTEGER,                                 "
+               "                          attach      TEXT CHECK (attach IN ('MDI', 'Dock'))); "
+               "                          parent      INTEGER REFERENCES mainWindows(ID),      "
+               "                          docWidgetID UNIQUE REFERENCES docWidgets(ID),        ");
+
+    query.exec("CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,       "
+               "                          ptr         INTEGER,                                 "
+               "                          frameID     INTEGER REFERENCES frames(ID));          ");
 }
 
 void Emdi::_addMainWindow(const QMainWindow *mw) {
-    QSqlDatabase db = QSqlDatabase::database("emdiviews");
+    QSqlDatabase db = QSqlDatabase::database("connviews");
     QSqlQuery query(db);
-    query.prepare("INSERT INTO views (mainWindowPtr) VALUES (:mw);");
+    query.prepare("INSERT INTO mainWindows (ptr) VALUES (:mw);");
     query.bindValue(":mw", reinterpret_cast<uint64_t>(mw));
     if (!query.exec()) {
         qDebug("Insert MainWindow failed");
@@ -93,7 +106,7 @@ void Emdi::_addMainWindow(const QMainWindow *mw) {
 }
 
 void Emdi::_addConnView(const ConnView & cv) {
-    QSqlDatabase db = QSqlDatabase::database("emdiviews");
+    QSqlDatabase db = QSqlDatabase::database("connviews");
     QSqlQuery query(db);
     query.prepare("INSERT INTO views" 
         "(docName, docPtr, docWidgetPtr, frameType, framePtr, frameAttach, mainWindowPtr)"
@@ -113,8 +126,8 @@ void Emdi::_addConnView(const ConnView & cv) {
 }
 
 QMainWindow *Emdi::_latestMainWindow() const {
-    QSqlQuery query(QSqlDatabase::database("emdiviews"));
-    query.exec("SELECT mainWindowPtr FROM views ORDER BY ID DESC");
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    query.exec("SELECT ptr FROM mainWindows ORDER BY ID DESC");
     if (query.next()) {
         return reinterpret_cast<QMainWindow *>(query.value(0).toULongLong());
     }
@@ -125,7 +138,7 @@ QMainWindow *Emdi::_latestMainWindow() const {
 }
 
 ConnView Emdi::_findRecord(const std::string & field, const std::string & value) {
-    QSqlQuery query(QSqlDatabase::database("emdiviews"));
+    QSqlQuery query(QSqlDatabase::database("connviews"));
     query.prepare("SELECT * FROM views WHERE :field LIKE :value LIMIT 1");
     query.bindValue(":field", QVariant(field.c_str()));
     query.bindValue(":value", QVariant(value.c_str()));
