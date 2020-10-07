@@ -69,15 +69,6 @@ bool fatalExec (QSqlQuery & query, const QString & inftxt, int line) {
     }
     return true;
 }
-template <typename T>
-T qVal(QSqlQuery & query) {
-    //return qobject_cast<T>(query.value(0));
-    return T();
-}
-template<Document *>
-const Document * qVal(QSqlQuery & query) {
-    return reinterpret_cast<Document *>(query.value(0).toULongLong());
-}
 
 Emdi::Emdi() {
 #if defined(QT_DEBUG)

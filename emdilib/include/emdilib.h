@@ -33,8 +33,28 @@ std::string _str(const QVariant &);
 [[noreturn ]] void fatalStr(const QString &, int = 0);
 bool fatalExec (QSqlQuery &, int = 0);
 bool fatalExec (QSqlQuery &, const QString &, int = 0);
-template <typename T>
-T qVal(QSqlQuery &);
+
+//template <typename T>
+//T qVal(const QSqlQuery & query) {
+//    return T();
+//}
+//template<>
+//const Document * qVal<Document *>(const QSqlQuery & query) {
+//    return reinterpret_cast<Document *>(query.value(0).toULongLong());
+//}
+
+template<typename T>
+T qVal(const QSqlQuery & query) {
+    (void) query;
+    return T();
+}
+
+template<>
+const Document * qVal<const Document *>(const QSqlQuery & query) {
+    return uint64_t(query.value(0));
+}
+
+
 
 class Emdi {
 private:
