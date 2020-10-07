@@ -11,7 +11,7 @@ public:
     TxtDocument(const std::string &);
     ~TxtDocument();
     QWidget *OpenView(const std::string &) const override;
-    const std::string & docName() const override;
+    const std::string & name() const override;
 };
 
 class SchDocument : public Document {
@@ -21,7 +21,7 @@ public:
     SchDocument(const std::string &);
     ~SchDocument();
     QWidget *OpenView(const std::string &) const override;
-    const std::string & docName() const override;
+    const std::string & name() const override;
 };
 
 

@@ -25,7 +25,7 @@ QWidget *TxtDocument::OpenView(const std::string & frameType) const {
     else
         return nullptr;
 }
-const std::string & TxtDocument::docName() const {
+const std::string & TxtDocument::name() const {
     return m_docId;
 }
 
@@ -52,6 +52,6 @@ QWidget *SchDocument::OpenView(const std::string & frameType) const {
     else
         return nullptr;
 }
-const std::string & SchDocument::docName() const {
+const std::string & SchDocument::name() const {
     return m_docId;
 }

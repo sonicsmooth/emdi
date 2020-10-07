@@ -20,23 +20,23 @@ int main(int argc, char *argv[])
 
 
     Emdi emdi;
-    return 0;
     emdi.AddMainWindow(&w);
 
     std::string file1 = "somefile.txt";
     std::string file2 = "anotherfile.sch";
 
-    auto doc1 = std::make_unique<TxtDocument>(file1);
-    auto doc2 = std::make_unique<SchDocument>(file2);
+    TxtDocument doc1(file1);
+    SchDocument doc2(file2);
 
-    // TODO: Retrieve document frameTypes 
-    emdi.AddDocument(std::move(doc1));
-    emdi.ShowView(file1, "Schematic", WidgetType::MDI);
-    emdi.ShowView(file1, "Properties", WidgetType::Dock);
+    // TODO: Retrieve document userTypes
+    emdi.AddDocument(&doc1);
+    emdi.AddDocument(&doc2);
 
-    emdi.AddDocument(std::move(doc2));
-    emdi.ShowView(file2, "SymView", WidgetType::MDI);
-    emdi.ShowView(file2, "Properties", WidgetType::Dock);
+    emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
+    emdi.ShowView(file1, "Properties", AttachmentType::Dock);
+
+    emdi.ShowView(file2, "SymView", AttachmentType::MDI);
+    emdi.ShowView(file2, "Properties", AttachmentType::Dock);
 
 
 #if defined(QT_DEBUG)
