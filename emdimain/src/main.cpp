@@ -18,7 +18,6 @@ int main(int argc, char *argv[])
     MainWindow w;
     w.setCentralWidget(nullptr);
 
-
     Emdi emdi;
     emdi.AddMainWindow(&w);
 

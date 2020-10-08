@@ -4,7 +4,7 @@
 #include <QDebug>
 
 TxtDocument::TxtDocument(const std::string & docId) :
-    m_docId(docId)
+    m_name(docId)
 {
     // Throw if can't open doc
     qDebug("TxtDocument::TxtDocument(...)");
@@ -26,13 +26,13 @@ QWidget *TxtDocument::OpenView(const std::string & frameType) const {
         return nullptr;
 }
 const std::string & TxtDocument::name() const {
-    return m_docId;
+    return m_name;
 }
 
 
 
 SchDocument::SchDocument(const std::string & docId) :
-    m_docId(docId)
+    m_name(docId)
 {
     // Throw if can't open doc
     qDebug("SchDocument::SchDocument(...)");
@@ -53,5 +53,5 @@ QWidget *SchDocument::OpenView(const std::string & frameType) const {
         return nullptr;
 }
 const std::string & SchDocument::name() const {
-    return m_docId;
+    return m_name;
 }

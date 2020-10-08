@@ -6,20 +6,20 @@
 
 class TxtDocument : public Document {
 private:
-    const std::string m_docId;
+    const std::string m_name;
 public:
     TxtDocument(const std::string &);
-    ~TxtDocument();
+    ~TxtDocument() override;
     QWidget *OpenView(const std::string &) const override;
     const std::string & name() const override;
 };
 
 class SchDocument : public Document {
 private:
-    const std::string m_docId;
+    const std::string m_name;
 public:
     SchDocument(const std::string &);
-    ~SchDocument();
+    ~SchDocument() override;
     QWidget *OpenView(const std::string &) const override;
     const std::string & name() const override;
 };

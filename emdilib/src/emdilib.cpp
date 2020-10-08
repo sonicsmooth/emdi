@@ -18,17 +18,91 @@
 #include <QSqlQuery>
 #include <QVariant>
 
+template<> Document * qVal<Document *>(const QSqlQuery & query, int i) {
+    return reinterpret_cast<Document *>(query.value(i).toULongLong());
+}
+template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
+    return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+}
+template<> QWidget * qVal<QWidget *>(const QSqlQuery & query, int i) {
+    return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+}
+template<> Document * qVal<Document *>(const QSqlQuery & query, const QString & field) {
+    int i = query.record().indexOf(field);
+    return reinterpret_cast<Document *>(query.value(i).toULongLong());
+}
+template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, const QString & field) {
+    int i = query.record().indexOf(field);
+    return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+}
+template<> QWidget * qVal<QWidget *>(const QSqlQuery & query, const QString & field) {
+    int i = query.record().indexOf(field);
+    return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+}
+QString selectStr(const QString & table, const QString & field, unsigned int i) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(i);
+}
+QString selectStr(const QString & table, const QString & field, const std::string & str) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3' LIMIT 1").
+            arg(table).arg(field).arg(str.c_str());
+}
+QString selectStr(const QString & table, const QString & field, QMainWindow *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, const QMainWindow *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, QWidget *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, const QWidget *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, Document *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, const Document *ptr) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
+            arg(table).arg(field).arg(uint64_t(ptr));
+}
+QString selectStr(const QString & table, const QString & field, AttachmentType at) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3' LIMIT 1").
+            arg(table).arg(field).arg(attach2str<QString>(at));
+}
 
-template<typename T>
-T *_ptr(const QVariant & qv) {
-    return reinterpret_cast<T *>(qv.toULongLong());
-}
-unsigned int _uint(const QVariant & qv) {
-    return qv.toUInt();
-}
-std::string _str(const QVariant & qv) {
-    return qv.toString().toStdString();
-}
+template<> QString tableName<DocRecord>() {return "docs";}
+template<> QString tableName<DocWidgetsRecord>() {return "docWidgets";}
+template<> QString tableName<FramesRecord>() {return "frames";}
+template<> QString tableName<MainWindowsRecord>() {return "mainWindows";}
+
+DocRecord::DocRecord(const QSqlQuery & query) :
+    ID(qVal<decltype(ID)>(query, 0)),
+    ptr(qVal<decltype(ptr)>(query, 1)),
+    name(qVal<QString>(query, 2).toStdString()){}
+
+DocWidgetsRecord::DocWidgetsRecord(const QSqlQuery & query) :
+    ID(qVal<decltype(ID)>(query, 0)),
+    ptr(qVal<decltype(ptr)>(query, 1)),
+    docID(qVal<decltype(docID)>(query, 2)){}
+
+FramesRecord::FramesRecord(const QSqlQuery & query) :
+    ID(qVal<decltype(ID)>(query, 0)),
+    ptr(qVal<decltype(ptr)>(query, 1)),
+    userType(qVal<QString>(query, 2).toStdString()),
+    attach(str2attach(qVal<QString>(query, 3))),
+    mainWindowID(qVal<decltype(mainWindowID)>(query, 4)),
+    docWidgetID(qVal<decltype(docWidgetID)>(query, 5)){}
+
+MainWindowsRecord::MainWindowsRecord(const QSqlQuery & query) :
+    ID(qVal<decltype(ID)>(query, 0)),
+    ptr(qVal<decltype(ptr)>(query, 1)){}
+
 void fatalStr(const QString & inftxt, int line) {
     qDebug(inftxt.toLatin1());
     QMessageBox mb;
@@ -40,34 +114,12 @@ void fatalStr(const QString & inftxt, int line) {
     mb.exec();
     throw(std::logic_error(inftxt.toLatin1()));
 }
-bool fatalExec (QSqlQuery & query, int line) {
-    if (!query.exec()) {
-        QString qs = query.lastError().text();
-        qDebug(qs.toLatin1());
-        QMessageBox mb;
-        mb.setIcon(QMessageBox::Critical);
-        mb.setWindowTitle("DB Error");
-        if (line)
-            mb.setText("Line #" + QString::number(line));
-        mb.exec();
-        throw(std::logic_error(qs.toLatin1()));
-    }
-    return true;
-}
-bool fatalExec (QSqlQuery & query, const QString & inftxt, int line) {
-    if (!query.exec()) {
-        QString qs = query.lastError().text();
-        qDebug(qs.toLatin1());
-        QMessageBox mb;
-        mb.setIcon(QMessageBox::Critical);
-        mb.setWindowTitle("DB Error");
-        mb.setInformativeText(inftxt);
-        if (line)
-            mb.setText("Line #" + QString::number(line));
-        mb.exec();
-        throw(std::logic_error(qs.toLatin1()));
-    }
-    return true;
+QString querr(const QString & comment, const QSqlQuery & query) {
+    // Concatenates comment, last error, and query text with \n
+    return QString("%1\n%2\n%3").
+                   arg(comment).
+                   arg(query.lastError().text()).
+                   arg(query.lastQuery());
 }
 
 Emdi::Emdi() {
@@ -115,102 +167,41 @@ void Emdi::_dbInitDb() {
                      "                          ptr         INTEGER);                            \n"});
     for (QString qs: qsl)
         if (!query.exec(qs))
-            fatalStr(qs, __LINE__);
+            fatalStr(querr("Could not init", query), __LINE__);
 }
 
-void Emdi::_dbAddDocument(const Document *doc) {
-    QSqlDatabase db = QSqlDatabase::database("connviews");
-    QSqlQuery query(db);
-    QString s;
-    s.sprintf("INSERT INTO docs (ptr,name) VALUES (%u, '%s')", uint64_t(doc), doc->name().c_str());
+void Emdi::_dbAddDocument(const Document *ptr) {
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString::asprintf("INSERT INTO docs (ptr,name) VALUES (%llu, '%s')", uint64_t(ptr), ptr->name().c_str());
     if (!query.exec(s))
-        fatalStr(query.lastError().text() + "\n\"" + s + "\"", __LINE__);
+        fatalStr(querr("Could not execute add Document", query), __LINE__);
 }
-const Document *Emdi::_dbFindDocPtr(const std::string & arg) const {
+void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    query.prepare("SELECT ptr FROM docs WHERE name IS " + QString::fromStdString(arg));
-    fatalExec(query, query.lastQuery(), __LINE__);
-    if(query.next())
-        return qVal<Document *>(query);
-        //return _ptr<Document>(query.value(0));
-    else
-        fatalStr("Can't find document", __LINE__);
-}
-const Document *Emdi::_dbFindDocPtr(unsigned int arg) const {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    s.sprintf("SELECT ptr FROM docs WHERE ID IS %d", arg);
-    query.prepare(s);
-    fatalExec(query, query.lastQuery() + "\n\"" + s + "\"", __LINE__);
-    if(query.next())
-        return qVal<Document *>(query);
-        //return _ptr<Document>(query.value(0));
-    else
-        fatalStr("Can't find document", __LINE__);
-}
-unsigned int Emdi::_dbFindDocID(const std::string & arg) const {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    s.sprintf("SELECT ID FROM docs WHERE name IS '%s'", arg.c_str());
-    query.prepare(s);
-    fatalExec(query, s, __LINE__);
-    if(query.next())
-        return qVal<unsigned int>(query);
-        //return _uint(query.value(0));
-    else
-        fatalStr("Can't find document", __LINE__);
-}
-unsigned int Emdi::_dbFindDocID(const Document *arg) const {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    s.sprintf("SELECT ID FROM docs WHERE ptr IS %u;", uint64_t(arg));
-    query.prepare(s);
-    fatalExec(query, s, __LINE__);
-    if(query.next())
-        return qVal<unsigned int>(query);
-        //return query.value(0).toInt();
-    else
-        fatalStr("Can't find document", __LINE__);
-}
-
-void Emdi::_dbAddMainWindow(const QMainWindow *arg) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    s.sprintf("INSERT INTO mainWindows (ptr) VALUES (%u);", uint64_t(arg));
+    QString s = QString::asprintf("INSERT INTO mainWindows (ptr) VALUES (%llu);", uint64_t(ptr));
     if (!query.exec(s))
-        fatalStr(s, __LINE__);
+        fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
 }
-void Emdi::_dbAddDocWidget(const QWidget *arg1, int arg2) {
+MainWindowsRecord Emdi::_dbFindLatestMainWindow() const {
+    QString s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
+    MainWindowsRecord r = getRecord<MainWindowsRecord>(s);
+    return r;
+}
+void Emdi::_dbAddDocWidget(const QWidget *ptr, unsigned int ID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    s.sprintf("INSERT INTO docWidgets (ptr,docID) VALUES (%u,%d);",
-        uint64_t(arg1), arg2);
+    QString s = QString::asprintf("INSERT INTO docWidgets (ptr,docID) VALUES (%llu,%u);", uint64_t(ptr), ID);
     if (!query.exec(s))
-        fatalStr(s, __LINE__);
+        fatalStr(querr("Could not execute add docWidget", query), __LINE__);
 }
-void Emdi::_dbAddFrame(const QWidget *frame, const std::string & userType, 
-                       AttachmentType at, int mainWindowID, int docWidgetID) {
+void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
+                       AttachmentType at, unsigned int mwID, unsigned int dwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s;
-    QString atstr = at == AttachmentType::Dock ? "Dock" : "MDI";
-    s.sprintf("INSERT INTO frames (ptr,userType,attach,mainWindowID,docWidgetID) "
-              "VALUES (%u,%s,%s,%d,%d);", uint64_t(frame), userType.c_str(), atstr.toLatin1().data(),
-              mainWindowID, docWidgetID);
+    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,mainWindowID,docWidgetID) "
+                                  "VALUES (%llu,'%s','%s',%u,%u);", uint64_t(ptr), userType.c_str(),
+                                  at == AttachmentType::Dock ? "Dock" : "MDI", mwID, dwID);
     if (!query.exec(s))
-        fatalStr(s, __LINE__);
+        fatalStr(querr("Could not execute add Frame", query), __LINE__);
 }
-QMainWindow *Emdi::_dbFindMainWindow() const {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = "SELECT ptr FROM mainWindows ORDER BY ID DESC;";
-    if (!query.exec(s))
-        fatalStr(s, __LINE__);
-    if (query.next())
-        return qVal<QMainWindow *>(query);
-        //return _ptr<QMainWindow>(query.value(0));
-    else
-        fatalStr("Can't find MainWindow");
-}
-
 
 void Emdi::AddMainWindow(const QMainWindow *mw) {
     _dbAddMainWindow(mw);
@@ -224,20 +215,17 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
     // AttachmentType is either MDI or Dock
 
     // Use most recent host window
-    QMainWindow *mw = _dbFindMainWindow();
-    QMdiArea *mdi = static_cast<QMdiArea *>(mw->centralWidget());
+    MainWindowsRecord lmwr = _dbFindLatestMainWindow();
+    QMainWindow *mainWindow = lmwr.ptr;
+    QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
     if (!mdi) {
         mdi = new QMdiArea();
-        mw->setCentralWidget(mdi);
+        mainWindow->setCentralWidget(mdi);
     }
 
-    // Retrieve the Document based on its name
-    const Document *doc   = _dbFindDocPtr(docName);
-    unsigned int            docID  = _dbFindDocID(docName);
-    const Document *doc2  = _dbFindDocPtr(docID);
-    unsigned int            docID2 = _dbFindDocID(doc);
-
-    // Get a new view from the doc
+    // Retrieve the Document and get view
+    DocRecord dr = getRecord<DocRecord>("name", docName);
+    Document *doc   = dr.ptr;
     QWidget *docWidget = doc->OpenView(userType);
 
     if (!docWidget) {
@@ -253,8 +241,9 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
         frame->setWidget(docWidget);
         frame->setWindowTitle(QString::fromStdString(userType));
         mdi->addSubWindow(frame);
-        _dbAddDocWidget(docWidget, _dbFindDocID(doc));
-        _dbAddFrame(frame, userType, at, 0, 0);
+        _dbAddDocWidget(docWidget, dr.ID);
+        auto dwr = getRecord<DocWidgetsRecord>("ptr",docWidget);
+        _dbAddFrame(frame, userType, at, lmwr.ID, dwr.ID);
     }
 
     // Create new, or reuse DockWidget
@@ -275,7 +264,7 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
             QDockWidget *frame = new QDockWidget();
             frame->setWidget(docWidget);
             frame->setWindowTitle(QString::fromStdString(userType));
-            mw->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
+            mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
   //          _addConnView({0, docName, const_cast<Document *>(doc), docWidget, frameType, "Dock", subWidget, mw});
 //        }
     }
