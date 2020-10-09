@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
     // TODO: Retrieve document userTypes
     emdi.AddDocument(&doc1);
-    emdi.AddDocument(&doc2);
+    emdi.AddDocument(&doc2);   
 
     emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
     emdi.ShowView(file1, "Properties", AttachmentType::Dock);

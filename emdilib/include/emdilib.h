@@ -108,24 +108,9 @@ private:
     void _dbInitDb();
 
     void         _dbAddDocument(const Document *);
-//    Document    *_dbFindDocPtr(const std::string &) const;
-//    Document    *_dbFindDocPtr(unsigned int) const;
-//    unsigned int _dbFindDocID(const std::string &) const;
-//    unsigned int _dbFindDocID(const Document *) const;
-
     void         _dbAddMainWindow(const QMainWindow *);
     MainWindowsRecord _dbFindLatestMainWindow() const;
-//    unsigned int _dbFindLatestMainWindowID() const;
-//    QMainWindow *_dbFindMainWindowPtr(unsigned int) const;
-//    unsigned int _dbFindMainWindowID(const QMainWindow *) const;
-
     void         _dbAddDocWidget(const QWidget *, unsigned int);
-//    unsigned int _dbFindDocWidgetID(const QWidget *);
-//    unsigned int _dbFindDocWidgetID(unsigned int);
-//    QWidget     *_dbFindDocWidgetPtr(unsigned int, const std::string &);
-//    unsigned int _dbFindDocWidgetDocID(unsigned int);
-//    unsigned int _dbFindDocWidgetDocID(const QWidget *);
-
     void _dbAddFrame(const QWidget *, const std::string &, AttachmentType,
                      unsigned int, unsigned int);
 public:

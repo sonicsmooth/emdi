@@ -13,7 +13,7 @@ TxtDocument::~TxtDocument() {
     qDebug("TxtDocument::~TxtDocument()");
 }
 
-QWidget *TxtDocument::OpenView(const std::string & frameType) const {
+QWidget *TxtDocument::newView(const std::string & frameType) const {
     (void) frameType;
     qDebug("TxtDocument::OpenView(...)");
     if (frameType == "Schematic")
@@ -40,7 +40,7 @@ SchDocument::SchDocument(const std::string & docId) :
 SchDocument::~SchDocument() {
     qDebug("SchDocument::~SchDocument()");
 }
-QWidget *SchDocument::OpenView(const std::string & frameType) const {
+QWidget *SchDocument::newView(const std::string & frameType) const {
     (void) frameType;
     qDebug("SchDocument::OpenView");
     if (frameType == "Schematic")

@@ -10,7 +10,7 @@ private:
 public:
     TxtDocument(const std::string &);
     ~TxtDocument() override;
-    QWidget *OpenView(const std::string &) const override;
+    QWidget *newView(const std::string &) const override;
     const std::string & name() const override;
 };
 
@@ -20,7 +20,7 @@ private:
 public:
     SchDocument(const std::string &);
     ~SchDocument() override;
-    QWidget *OpenView(const std::string &) const override;
+    QWidget *newView(const std::string &) const override;
     const std::string & name() const override;
 };
 

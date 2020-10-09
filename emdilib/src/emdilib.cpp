@@ -82,26 +82,26 @@ template<> QString tableName<FramesRecord>() {return "frames";}
 template<> QString tableName<MainWindowsRecord>() {return "mainWindows";}
 
 DocRecord::DocRecord(const QSqlQuery & query) :
-    ID(qVal<decltype(ID)>(query, 0)),
-    ptr(qVal<decltype(ptr)>(query, 1)),
-    name(qVal<QString>(query, 2).toStdString()){}
+    ID(qVal<decltype(ID)>(query, "ID")),
+    ptr(qVal<decltype(ptr)>(query, "ptr")),
+    name(qVal<QString>(query, "name").toStdString()){}
 
 DocWidgetsRecord::DocWidgetsRecord(const QSqlQuery & query) :
-    ID(qVal<decltype(ID)>(query, 0)),
-    ptr(qVal<decltype(ptr)>(query, 1)),
-    docID(qVal<decltype(docID)>(query, 2)){}
+    ID(qVal<decltype(ID)>(query, "ID")),
+    ptr(qVal<decltype(ptr)>(query, "ptr")),
+    docID(qVal<decltype(docID)>(query, "docID")){}
 
 FramesRecord::FramesRecord(const QSqlQuery & query) :
-    ID(qVal<decltype(ID)>(query, 0)),
-    ptr(qVal<decltype(ptr)>(query, 1)),
-    userType(qVal<QString>(query, 2).toStdString()),
-    attach(str2attach(qVal<QString>(query, 3))),
-    mainWindowID(qVal<decltype(mainWindowID)>(query, 4)),
-    docWidgetID(qVal<decltype(docWidgetID)>(query, 5)){}
+    ID(qVal<decltype(ID)>(query, "ID")),
+    ptr(qVal<decltype(ptr)>(query, "ptr")),
+    userType(qVal<QString>(query, "userType").toStdString()),
+    attach(str2attach(qVal<QString>(query, "attach"))),
+    mainWindowID(qVal<decltype(mainWindowID)>(query, "mainWindowID")),
+    docWidgetID(qVal<decltype(docWidgetID)>(query, "docWidgetID")){}
 
 MainWindowsRecord::MainWindowsRecord(const QSqlQuery & query) :
-    ID(qVal<decltype(ID)>(query, 0)),
-    ptr(qVal<decltype(ptr)>(query, 1)){}
+    ID(qVal<decltype(ID)>(query, "ID")),
+    ptr(qVal<decltype(ptr)>(query, "ptr")){}
 
 void fatalStr(const QString & inftxt, int line) {
     qDebug(inftxt.toLatin1());
@@ -144,27 +144,52 @@ void Emdi::_dbInitDb() {
     db.setDatabaseName("TheFile.db");
     db.open();
     QSqlQuery query(db);
-    QStringList qsl({"DROP TABLE IF EXISTS docs;                                                   ",
-                     "DROP TABLE IF EXISTS docWidgets;                                             ",
-                     "DROP TABLE IF EXISTS frames;                                                 ",
-                     "DROP TABLE IF EXISTS mainWindows;                                            ",
-                     "CREATE TABLE docs (ID   INTEGER PRIMARY KEY AUTOINCREMENT,                 \n"
-                     "                   ptr  INTEGER,                                           \n"
-                     "                   name TEXT);                                               ",
-                                
-                     "CREATE TABLE docWidgets  (ID    INTEGER PRIMARY KEY AUTOINCREMENT,          \n"
-                     "                          ptr   INTEGER,                                    \n"
-                     "                          docId REFERENCES docs(ID));                         ",
-                 
-                     "CREATE TABLE frames (ID           INTEGER PRIMARY KEY AUTOINCREMENT,        \n"
-                     "                     ptr          INTEGER,                                  \n"
-                     "                     userType     TEXT,                                     \n"
-                     "                     attach       TEXT CHECK (attach IN ('MDI', 'Dock')),   \n"
-                     "                     mainWindowID INTEGER REFERENCES mainWindows(ID),       \n"
-                     "                     docWidgetID  UNIQUE REFERENCES docWidgets(ID));          ",
-                 
-                     "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,   \n"
-                     "                          ptr         INTEGER);                            \n"});
+    const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
+                       "  (SELECT DISTINCT userType , mainWindowID, COUNT(userType)>1 as fail         \n"
+                       "   FROM            frames                                                     \n"
+                       "   LEFT JOIN       docWidgets                                                 \n"
+                       "   ON              frames.docWidgetID == docWidgets.ID                        \n"
+                       "   WHERE           attach is 'Dock'                                           \n"
+                       "   GROUP BY mainWindowID, userType)                                           \n";
+
+    QStringList qsl = {"DROP TABLE IF EXISTS docs;                                                      ",
+                       "DROP TABLE IF EXISTS docWidgets;                                                ",
+                       "DROP TABLE IF EXISTS frames;                                                    ",
+                       "DROP TABLE IF EXISTS mainWindows;                                               ",
+                       "DROP VIEW IF EXISTS toomanydocks;                                               ",
+                       "CREATE TABLE docs (ID   INTEGER PRIMARY KEY AUTOINCREMENT,                    \n"
+                       "                   ptr  INTEGER,                                              \n"
+                       "                   name TEXT);                                                  ",
+
+                       "CREATE TABLE docWidgets  (ID    INTEGER PRIMARY KEY AUTOINCREMENT,            \n"
+                       "                          ptr   INTEGER,                                      \n"
+                       "                          docId REFERENCES docs(ID));                           ",
+
+                       "CREATE TABLE frames (ID           INTEGER PRIMARY KEY AUTOINCREMENT,          \n"
+                       "                     ptr          INTEGER,                                    \n"
+                       "                     userType     TEXT,                                       \n"
+                       "                     attach       TEXT CHECK (attach IN ('MDI', 'Dock')),     \n"
+                       "                     docWidgetID  UNIQUE REFERENCES docWidgets(ID),           \n"
+                       "                     mainWindowID INTEGER REFERENCES mainWindows(ID));        \n",
+
+                       "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,      \n"
+                       "                          ptr         INTEGER);                               \n",
+
+                       "CREATE TRIGGER multidocks_insert_fail                                         \n"
+                       "    AFTER INSERT ON frames                                                    \n"
+                       "WHEN                                                                          \n"
+                       "    (" + subq + ")                                                            \n"
+                       "BEGIN                                                                         \n"
+                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+                       "END;                                                                            ",
+                       
+                       "CREATE TRIGGER multidocks_update_fail                                         \n"
+                       "    AFTER UPDATE ON frames                                                    \n"
+                       "WHEN                                                                          \n"
+                       "    (" + subq + ")                                                            \n"
+                       "BEGIN                                                                         \n"
+                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+                       "END;                                                                            "};
     for (QString qs: qsl)
         if (!query.exec(qs))
             fatalStr(querr("Could not init", query), __LINE__);
@@ -226,7 +251,7 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
     // Retrieve the Document and get view
     DocRecord dr = getRecord<DocRecord>("name", docName);
     Document *doc   = dr.ptr;
-    QWidget *docWidget = doc->OpenView(userType);
+    QWidget *docWidget = doc->newView(userType);
 
     if (!docWidget) {
         qDebug("Cannot open document frameType");
@@ -265,7 +290,9 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
             frame->setWidget(docWidget);
             frame->setWindowTitle(QString::fromStdString(userType));
             mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
-  //          _addConnView({0, docName, const_cast<Document *>(doc), docWidget, frameType, "Dock", subWidget, mw});
+            _dbAddDocWidget(docWidget, dr.ID);
+            auto dwr = getRecord<DocWidgetsRecord>("ptr", docWidget);
+            _dbAddFrame(frame, userType, at, lmwr.ID, dwr.ID);
 //        }
     }
 }
