@@ -113,6 +113,7 @@ private:
     void         _dbAddDocWidget(const QWidget *, unsigned int);
     void _dbAddFrame(const QWidget *, const std::string &, AttachmentType,
                      unsigned int, unsigned int);
+    FramesRecord _dbFindExistingDockFrame(const std::string &, unsigned int);
 public:
     Emdi();
     ~Emdi();

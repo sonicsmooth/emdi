@@ -227,7 +227,12 @@ void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
     if (!query.exec(s))
         fatalStr(querr("Could not execute add Frame", query), __LINE__);
 }
-
+FramesRecord Emdi::_dbFindExistingDockFrame(const std::string & userType, unsigned int mainWindowID){
+    QString s = QString::asprintf("SELECT * FROM frames WHERE \"userType\" IS '%s' AND \"mainWindowID\" IS %u").
+                arg(userType.c_str()).arg(mainWindowID);
+    FramesRecord fr = getRecord<FramesRecord>(s);
+    return fr;
+}
 void Emdi::AddMainWindow(const QMainWindow *mw) {
     _dbAddMainWindow(mw);
 }
@@ -273,18 +278,16 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType, A
 
     // Create new, or reuse DockWidget
     else if (at == AttachmentType::Dock) {
-        // TODO: add WHERE MainWindow...
-        // ConnView cv = _findRecord("frameType", frameType);
-        // if (cv.ID) {
-        //     // Attach docWidget to existing record
-        //     QDockWidget *subWidget = static_cast<QDockWidget *>(cv.subWidget);
-        //     subWidget->setWidget(docWidget);
-        //     // TODO: We have new doc info, so either:
-        //     // 1. replace old doc info with new doc info, keeping frame info (forgetting old doc)
-        //     // 2. replace old frame info with nulls, create new frame info with new doc info
-        //     // (1) Cannot forget old doc info because it has docWidget
-        //     // (2) Implies we can have a doc-only record, which means we have to redo how we add a document initially
-        // }
+        // Find frame with this userType and Dock and mainWindowID
+        FramesRecord fr = _dbFindExistingDockFrame(userType, lmwr.ID);
+        if (fr.ID) {
+            QDockWidget *dw = static_cast<QDockWidget *>(fr.ptr);
+            dw->setWidget(docWidget);
+            dw->setWindowTitle(QString::fromStdString(userType));
+            _dbAddDocWidget(docWidget, dr.ID);
+            auto dwr = getRecord<DocWidgetsRecord>("ptr", docWidget);
+            _dbAddFrame(fr.ptr, userType, at, lmwr.ID, dwr.ID);
+        }
         // else {
             QDockWidget *frame = new QDockWidget();
             frame->setWidget(docWidget);
