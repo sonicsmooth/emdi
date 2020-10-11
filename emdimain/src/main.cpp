@@ -11,7 +11,6 @@
 #include <memory>
 #include <string>
 
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
@@ -32,10 +31,10 @@ int main(int argc, char *argv[])
     emdi.AddDocument(&doc2);   
 
     emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
-    emdi.ShowView(file1, "Properties", AttachmentType::Dock);
-
     emdi.ShowView(file2, "SymView", AttachmentType::MDI);
+    emdi.ShowView(file1, "Properties", AttachmentType::Dock);
     emdi.ShowView(file2, "Properties", AttachmentType::Dock);
+    //emdi.ShowView(file1, "Properties", AttachmentType::Dock);
 
 
 #if defined(QT_DEBUG)

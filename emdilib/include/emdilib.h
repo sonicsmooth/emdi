@@ -10,13 +10,15 @@
 #include <QSqlQuery>
 #include <QWidget>
 
+#include <optional>
+
 enum class AttachmentType {ERROR, MDI, Dock};
 template<typename T>
 T attach2str(AttachmentType at) {
     switch(at) {
     case AttachmentType::MDI: return "MDI";
     case AttachmentType::Dock: return "Dock";
-    default: return "ERROR";
+    case AttachmentType::ERROR: return "ERROR";
     }
 }
 template<typename T>
@@ -30,14 +32,19 @@ struct DocRecord {
     unsigned int ID;
     Document *ptr;
     std::string name;
-    DocRecord(const QSqlQuery &);
+    DocRecord();
+    DocRecord(const QSqlQuery &) ;
+    DocRecord & operator=(const DocRecord &);
 };
 
 struct DocWidgetsRecord {
     unsigned int ID;
     QWidget *ptr;
+    std::string userType;
     unsigned int docID;
+    DocWidgetsRecord();
     DocWidgetsRecord(const QSqlQuery &);
+    DocWidgetsRecord & operator=(const DocWidgetsRecord &);
 };
 
 struct FramesRecord {
@@ -47,13 +54,17 @@ struct FramesRecord {
     AttachmentType attach;
     unsigned int mainWindowID;
     unsigned int docWidgetID;
+    FramesRecord();
     FramesRecord(const QSqlQuery &);
+    FramesRecord & operator=(const FramesRecord &);
 };
 
 struct MainWindowsRecord {
     unsigned int ID;
     QMainWindow *ptr;
+    MainWindowsRecord();
     MainWindowsRecord(const QSqlQuery &);
+    MainWindowsRecord & operator=(const MainWindowsRecord &);
 };
 
 [[noreturn ]] void fatalStr(const QString &, int = 0);
@@ -84,22 +95,22 @@ template<typename T>
 QString tableName() {}
 
 template<typename RET_T, typename ARG_T>
-RET_T getRecord(const QString & field, ARG_T val) {
+std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = selectStr(tableName<RET_T>(), field, val);
     if (!query.exec(s))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(!query.next())
-        fatalStr(querr("Can't find record", query), __LINE__);
+        return std::nullopt;
     return RET_T(query);
 }
 template<typename RET_T>
-RET_T getRecord(const QString & select) {
+std::optional<RET_T> getRecord(const QString & select) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     if (!query.exec(select))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(!query.next())
-        fatalStr(querr("Can't find record", query), __LINE__);
+        return std::nullopt;
     return RET_T(query);
 }
 
@@ -107,19 +118,22 @@ class Emdi {
 private:
     void _dbInitDb();
 
-    void         _dbAddDocument(const Document *);
-    void         _dbAddMainWindow(const QMainWindow *);
-    MainWindowsRecord _dbFindLatestMainWindow() const;
-    void         _dbAddDocWidget(const QWidget *, unsigned int);
+    void _dbAddDocument(const Document *);
+    void _dbAddMainWindow(const QMainWindow *);
+    std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
+    void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
+    std::optional<DocWidgetsRecord> _dbFindDockWigetsRecordByUserTypeDocID(const std::string &, unsigned int);
     void _dbAddFrame(const QWidget *, const std::string &, AttachmentType,
                      unsigned int, unsigned int);
-    FramesRecord _dbFindExistingDockFrame(const std::string &, unsigned int);
+    std::optional<FramesRecord> _dbFindExistingDockFrame(const std::string &, unsigned int);
+    void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
 public:
     Emdi();
     ~Emdi();
     void AddMainWindow(const QMainWindow *);
     void AddDocument(const Document *);
-    void ShowView(const std::string & docId, const std::string & frameType, AttachmentType);
+    void ShowView(const std::string & docName, const std::string & userType,
+                  AttachmentType at, QMainWindow *mainWindow = nullptr);
 
 };
 

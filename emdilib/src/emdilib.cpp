@@ -1,10 +1,5 @@
 #include "emdilib.h"
 
-#include <algorithm>
-#include <exception>
-#include <iostream>
-#include <iterator>
-
 #include <QDebug>
 #include <QDockWidget>
 #include <QMainWindow>
@@ -17,6 +12,13 @@
 #include <QtSql>
 #include <QSqlQuery>
 #include <QVariant>
+
+#include <algorithm>
+#include <exception>
+#include <iostream>
+#include <iterator>
+#include <optional>
+
 
 template<> Document * qVal<Document *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<Document *>(query.value(i).toULongLong());
@@ -81,16 +83,46 @@ template<> QString tableName<DocWidgetsRecord>() {return "docWidgets";}
 template<> QString tableName<FramesRecord>() {return "frames";}
 template<> QString tableName<MainWindowsRecord>() {return "mainWindows";}
 
+DocRecord::DocRecord():
+    ID(0),
+    ptr(nullptr),
+    name("") {}
 DocRecord::DocRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
     name(qVal<QString>(query, "name").toStdString()){}
+DocRecord & DocRecord::operator=(const DocRecord & other) {
+    this->ID = other.ID;
+    this->ptr = other.ptr;
+    this->name = other.name;
+    return *this;
+}
 
+DocWidgetsRecord::DocWidgetsRecord() :
+    ID(0),
+    ptr(nullptr),
+    userType(""),
+    docID(0){}
 DocWidgetsRecord::DocWidgetsRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
+    userType(qVal<QString>(query, "userType").toStdString()),
     docID(qVal<decltype(docID)>(query, "docID")){}
+DocWidgetsRecord & DocWidgetsRecord::operator=(const DocWidgetsRecord & other) {
+    this->ID = other.ID;
+    this->ptr = other.ptr;
+    this->userType = other.userType;
+    this->docID = other.docID;
+    return *this;
+}
 
+FramesRecord::FramesRecord() :
+    ID(0),
+    ptr(nullptr),
+    userType(""),
+    attach(AttachmentType::ERROR),
+    mainWindowID(0),
+    docWidgetID(0){}
 FramesRecord::FramesRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
@@ -98,10 +130,27 @@ FramesRecord::FramesRecord(const QSqlQuery & query) :
     attach(str2attach(qVal<QString>(query, "attach"))),
     mainWindowID(qVal<decltype(mainWindowID)>(query, "mainWindowID")),
     docWidgetID(qVal<decltype(docWidgetID)>(query, "docWidgetID")){}
+FramesRecord & FramesRecord::operator=(const FramesRecord & other) {
+    this->ID = other.ID;
+    this->ptr = other.ptr;
+    this->userType = other.userType;
+    this->attach = other.attach;
+    this->mainWindowID = other.mainWindowID;
+    this->docWidgetID = other.docWidgetID;
+    return *this;
+}
 
+MainWindowsRecord::MainWindowsRecord() :
+    ID(0),
+    ptr(nullptr){}
 MainWindowsRecord::MainWindowsRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")){}
+MainWindowsRecord & MainWindowsRecord::operator=(const MainWindowsRecord & other) {
+    this->ID = other.ID;
+    this->ptr = other.ptr;
+    return *this;
+}
 
 void fatalStr(const QString & inftxt, int line) {
     qDebug(inftxt.toLatin1());
@@ -145,7 +194,7 @@ void Emdi::_dbInitDb() {
     db.open();
     QSqlQuery query(db);
     const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
-                       "  (SELECT DISTINCT userType , mainWindowID, COUNT(userType)>1 as fail         \n"
+                       "  (SELECT DISTINCT frames.userType, mainWindowID, COUNT(frames.userType)>1 as fail   \n"
                        "   FROM            frames                                                     \n"
                        "   LEFT JOIN       docWidgets                                                 \n"
                        "   ON              frames.docWidgetID == docWidgets.ID                        \n"
@@ -161,35 +210,39 @@ void Emdi::_dbInitDb() {
                        "                   ptr  INTEGER,                                              \n"
                        "                   name TEXT);                                                  ",
 
-                       "CREATE TABLE docWidgets  (ID    INTEGER PRIMARY KEY AUTOINCREMENT,            \n"
-                       "                          ptr   INTEGER,                                      \n"
-                       "                          docId REFERENCES docs(ID));                           ",
+                       "CREATE TABLE docWidgets  (ID       INTEGER PRIMARY KEY AUTOINCREMENT,         \n"
+                       "                          ptr      INTEGER,                                   \n"
+                       "                          userType TEXT,                                      \n"
+                       "                          docID    REFERENCES docs(ID));                        ",
 
                        "CREATE TABLE frames (ID           INTEGER PRIMARY KEY AUTOINCREMENT,          \n"
-                       "                     ptr          INTEGER,                                    \n"
+                       "                     ptr          INTEGER UNIQUE,                             \n"
                        "                     userType     TEXT,                                       \n"
                        "                     attach       TEXT CHECK (attach IN ('MDI', 'Dock')),     \n"
-                       "                     docWidgetID  UNIQUE REFERENCES docWidgets(ID),           \n"
-                       "                     mainWindowID INTEGER REFERENCES mainWindows(ID));        \n",
+                       "                     docWidgetID  INTEGER UNIQUE,                             \n"
+                       "                     mainWindowID INTEGER,                                    \n"
+                       "                     FOREIGN KEY(docWidgetID) REFERENCES docWidgets(ID),      \n"
+                       "                     FOREIGN KEY(mainWindowID) REFERENCES mainWindows(ID));   \n",
 
                        "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,      \n"
                        "                          ptr         INTEGER);                               \n",
 
-                       "CREATE TRIGGER multidocks_insert_fail                                         \n"
-                       "    AFTER INSERT ON frames                                                    \n"
-                       "WHEN                                                                          \n"
-                       "    (" + subq + ")                                                            \n"
-                       "BEGIN                                                                         \n"
-                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
-                       "END;                                                                            ",
+//                       "CREATE TRIGGER multidocks_insert_fail                                         \n"
+//                       "    AFTER INSERT ON frames                                                    \n"
+//                       "WHEN                                                                          \n"
+//                       "    (" + subq + ")                                                            \n"
+//                       "BEGIN                                                                         \n"
+//                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+//                       "END;                                                                            ",
                        
-                       "CREATE TRIGGER multidocks_update_fail                                         \n"
-                       "    AFTER UPDATE ON frames                                                    \n"
-                       "WHEN                                                                          \n"
-                       "    (" + subq + ")                                                            \n"
-                       "BEGIN                                                                         \n"
-                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
-                       "END;                                                                            "};
+//                       "CREATE TRIGGER multidocks_update_fail                                         \n"
+//                       "    AFTER UPDATE ON frames                                                    \n"
+//                       "WHEN                                                                          \n"
+//                       "    (" + subq + ")                                                            \n"
+//                       "BEGIN                                                                         \n"
+//                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+//                       "END;                                                                            "
+                      };
     for (QString qs: qsl)
         if (!query.exec(qs))
             fatalStr(querr("Could not init", query), __LINE__);
@@ -207,95 +260,120 @@ void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     if (!query.exec(s))
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
 }
-MainWindowsRecord Emdi::_dbFindLatestMainWindow() const {
+std::optional<MainWindowsRecord> Emdi::_dbFindLatestMainWindow() const {
     QString s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
-    MainWindowsRecord r = getRecord<MainWindowsRecord>(s);
-    return r;
+    return getRecord<MainWindowsRecord>(s);
 }
-void Emdi::_dbAddDocWidget(const QWidget *ptr, unsigned int ID) {
+void Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, unsigned int ID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString::asprintf("INSERT INTO docWidgets (ptr,docID) VALUES (%llu,%u);", uint64_t(ptr), ID);
+    QString s = QString::asprintf("INSERT INTO docWidgets (ptr,userType,docID) VALUES (%llu,'%s',%u);",
+                                  uint64_t(ptr), userType.c_str(),ID);
     if (!query.exec(s))
         fatalStr(querr("Could not execute add docWidget", query), __LINE__);
+}
+std::optional<DocWidgetsRecord> Emdi::_dbFindDockWigetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("SELECT * from DocWidgets WHERE \"userType\" IS '%1' AND \n"
+                        "                               \"docID\" is %2").
+                        arg(userType.c_str()).arg(docID);
+    return getRecord<DocWidgetsRecord>(s);
 }
 void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
                        AttachmentType at, unsigned int mwID, unsigned int dwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,mainWindowID,docWidgetID) "
+    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,docWidgetID,mainWindowID) "
                                   "VALUES (%llu,'%s','%s',%u,%u);", uint64_t(ptr), userType.c_str(),
-                                  at == AttachmentType::Dock ? "Dock" : "MDI", mwID, dwID);
+                                  at == AttachmentType::Dock ? "Dock" : "MDI", dwID, mwID);
     if (!query.exec(s))
         fatalStr(querr("Could not execute add Frame", query), __LINE__);
 }
-FramesRecord Emdi::_dbFindExistingDockFrame(const std::string & userType, unsigned int mainWindowID){
-    QString s = QString::asprintf("SELECT * FROM frames WHERE \"userType\" IS '%s' AND \"mainWindowID\" IS %u").
-                arg(userType.c_str()).arg(mainWindowID);
-    FramesRecord fr = getRecord<FramesRecord>(s);
-    return fr;
+std::optional<FramesRecord> Emdi::_dbFindExistingDockFrame(const std::string & userType, unsigned int mainWindowID){
+    QString s = QString::asprintf("SELECT * FROM frames WHERE \"userType\" IS '%s' AND \"mainWindowID\" IS %u",
+                userType.c_str(), mainWindowID);
+    return getRecord<FramesRecord>(s);
 }
+void Emdi::_dbUpdateFrameDocWidgetID(unsigned int ID, unsigned int docWidgetID) {
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("UPDATE frames               \n"
+                        "SET    \"docWidgetID\" = %1 \n"
+                        "WHERE  \"ID\" is %2;").arg(docWidgetID).arg(ID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not update frames table", query), __LINE__);
+}
+
 void Emdi::AddMainWindow(const QMainWindow *mw) {
     _dbAddMainWindow(mw);
 }
 void Emdi::AddDocument(const Document *doc) {
     _dbAddDocument(doc);
 }
-void Emdi::ShowView(const std::string & docName, const std::string & userType, AttachmentType at) {
+void Emdi::ShowView(const std::string & docName, const std::string & userType,
+                    AttachmentType at, QMainWindow *mainWindow) {
     // docId is the unique string identifier for the document
     // frameType is specific to the document, eg SchView, SymView, etc.
     // AttachmentType is either MDI or Dock
+    // mw is the mainWindow to put the view in, otherwise nullptr for latest main window
 
-    // Use most recent host window
-    MainWindowsRecord lmwr = _dbFindLatestMainWindow();
-    QMainWindow *mainWindow = lmwr.ptr;
-    QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
-    if (!mdi) {
-        mdi = new QMdiArea();
-        mainWindow->setCentralWidget(mdi);
+    // Retrieve the Document and create or retrieve view
+    auto dropt = getRecord<DocRecord>("name", docName);
+    Document *doc = dropt->ptr;
+    QWidget *docWidget = nullptr;
+    DocWidgetsRecord dwr;
+    auto dwropt = _dbFindDockWigetsRecordByUserTypeDocID(userType, dropt->ID);
+    if (dwropt) {
+        docWidget = dwropt->ptr;
+        dwr = *dwropt;
+    }
+    else {
+        docWidget = doc->newView(userType);// assert docWidget
+        _dbAddDocWidget(docWidget, userType, dropt->ID);
+        dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
     }
 
-    // Retrieve the Document and get view
-    DocRecord dr = getRecord<DocRecord>("name", docName);
-    Document *doc   = dr.ptr;
-    QWidget *docWidget = doc->newView(userType);
 
-    if (!docWidget) {
-        qDebug("Cannot open document frameType");
-        throw(std::logic_error("Cannot open document frameType"));
+    // Find appropriate window record
+    MainWindowsRecord mwr;
+    if (mainWindow) {
+        auto mwropt = getRecord<MainWindowsRecord>("ptr", mainWindow);
+        mwr = *mwropt;
+        assert(mwr.ptr == mainWindow);
+    }
+    else {
+        auto mwropt = _dbFindLatestMainWindow();
+        mwr = *mwropt;
+        mainWindow = mwr.ptr;
     }
 
     // Create new MDI view
-    // Make this templated for MDI vs. DockWidget types
-    // Pass in factory as template argument
     if (at == AttachmentType::MDI) {
+        QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
+        if (!mdi) {
+            mdi = new QMdiArea();
+            mainWindow->setCentralWidget(mdi);
+        }
         QMdiSubWindow *frame = new QMdiSubWindow();
         frame->setWidget(docWidget);
         frame->setWindowTitle(QString::fromStdString(userType));
         mdi->addSubWindow(frame);
-        _dbAddDocWidget(docWidget, dr.ID);
-        auto dwr = getRecord<DocWidgetsRecord>("ptr",docWidget);
-        _dbAddFrame(frame, userType, at, lmwr.ID, dwr.ID);
+        _dbAddFrame(frame, userType, at, mwr.ID, dwr.ID);
     }
 
     // Create new, or reuse DockWidget
     else if (at == AttachmentType::Dock) {
+        QDockWidget *frame = nullptr;
         // Find frame with this userType and Dock and mainWindowID
-        FramesRecord fr = _dbFindExistingDockFrame(userType, lmwr.ID);
-        if (fr.ID) {
-            QDockWidget *dw = static_cast<QDockWidget *>(fr.ptr);
-            dw->setWidget(docWidget);
-            dw->setWindowTitle(QString::fromStdString(userType));
-            _dbAddDocWidget(docWidget, dr.ID);
-            auto dwr = getRecord<DocWidgetsRecord>("ptr", docWidget);
-            _dbAddFrame(fr.ptr, userType, at, lmwr.ID, dwr.ID);
+        auto fropt = _dbFindExistingDockFrame(userType, mwr.ID); // See about removing userType from frames
+        if (fropt) {
+            frame = static_cast<QDockWidget *>(fropt->ptr);
+            _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
         }
-        // else {
-            QDockWidget *frame = new QDockWidget();
-            frame->setWidget(docWidget);
-            frame->setWindowTitle(QString::fromStdString(userType));
+        else {
+            frame = new QDockWidget();
             mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
-            _dbAddDocWidget(docWidget, dr.ID);
-            auto dwr = getRecord<DocWidgetsRecord>("ptr", docWidget);
-            _dbAddFrame(frame, userType, at, lmwr.ID, dwr.ID);
-//        }
+            _dbAddFrame(frame, userType, at, mwr.ID, dwr.ID);
+        }
+        frame->setWidget(docWidget);
+        frame->setWindowTitle(QString::fromStdString(userType));
+
     }
 }

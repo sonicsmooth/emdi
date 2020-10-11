@@ -3,7 +3,7 @@ QT += core gui widgets sql
 TEMPLATE = lib
 DEFINES += EMDILIB_LIBRARY
 
-CONFIG += c++11
+CONFIG += c++17
 CONFIG += staticlib
 
 # You can make your code fail to compile if it uses deprecated APIs.
