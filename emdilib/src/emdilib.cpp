@@ -20,16 +20,16 @@
 #include <optional>
 
 
-template<> Document * qVal<Document *>(const QSqlQuery & query, int i) {
+template<> Document    * qVal<Document    *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<Document *>(query.value(i).toULongLong());
 }
 template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
 }
-template<> QWidget * qVal<QWidget *>(const QSqlQuery & query, int i) {
+template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
 }
-template<> Document * qVal<Document *>(const QSqlQuery & query, const QString & field) {
+template<> Document    * qVal<Document    *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
     return reinterpret_cast<Document *>(query.value(i).toULongLong());
 }
@@ -37,7 +37,7 @@ template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, const QStr
     int i = query.record().indexOf(field);
     return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
 }
-template<> QWidget * qVal<QWidget *>(const QSqlQuery & query, const QString & field) {
+template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
     return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
 }
@@ -49,23 +49,11 @@ QString selectStr(const QString & table, const QString & field, const std::strin
     return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3' LIMIT 1").
             arg(table).arg(field).arg(str.c_str());
 }
-QString selectStr(const QString & table, const QString & field, QMainWindow *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
-}
 QString selectStr(const QString & table, const QString & field, const QMainWindow *ptr) {
     return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
             arg(table).arg(field).arg(uint64_t(ptr));
 }
-QString selectStr(const QString & table, const QString & field, QWidget *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
-}
 QString selectStr(const QString & table, const QString & field, const QWidget *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
-}
-QString selectStr(const QString & table, const QString & field, Document *ptr) {
     return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
             arg(table).arg(field).arg(uint64_t(ptr));
 }

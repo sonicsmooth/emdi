@@ -83,11 +83,8 @@ T qVal(const QSqlQuery & query, const QString & field) {
 
 QString selectStr(const QString & table, const QString & field, unsigned int);
 QString selectStr(const QString & table, const QString & field, const std::string &);
-QString selectStr(const QString & table, const QString & field, QMainWindow *);
 QString selectStr(const QString & table, const QString & field, const QMainWindow *);
-QString selectStr(const QString & table, const QString & field, QWidget *);
 QString selectStr(const QString & table, const QString & field, const QWidget *);
-QString selectStr(const QString & table, const QString & field, Document *);
 QString selectStr(const QString & table, const QString & field, const Document *);
 QString selectStr(const QString & table, const QString & field, AttachmentType);
 
