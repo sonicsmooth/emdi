@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     emdi.ShowView(file2, "SymView", AttachmentType::MDI);
     emdi.ShowView(file1, "Properties", AttachmentType::Dock);
     emdi.ShowView(file2, "Properties", AttachmentType::Dock);
-    //emdi.ShowView(file1, "Properties", AttachmentType::Dock);
+    emdi.ShowView(file1, "Properties", AttachmentType::Dock);
 
 
 #if defined(QT_DEBUG)

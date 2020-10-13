@@ -182,12 +182,12 @@ void Emdi::_dbInitDb() {
     db.open();
     QSqlQuery query(db);
     const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
-                       "  (SELECT DISTINCT frames.userType, mainWindowID, COUNT(frames.userType)>1 as fail   \n"
+                       "  (SELECT DISTINCT docWidgets.userType, mainWindowID, COUNT(docWidgets.userType)>1 as fail   \n"
                        "   FROM            frames                                                     \n"
                        "   LEFT JOIN       docWidgets                                                 \n"
                        "   ON              frames.docWidgetID == docWidgets.ID                        \n"
                        "   WHERE           attach is 'Dock'                                           \n"
-                       "   GROUP BY mainWindowID, userType)                                           \n";
+                       "   GROUP BY frames.mainWindowID, docWidgets.userType)                             \n";
 
     QStringList qsl = {"DROP TABLE IF EXISTS docs;                                                      ",
                        "DROP TABLE IF EXISTS docWidgets;                                                ",
@@ -205,7 +205,7 @@ void Emdi::_dbInitDb() {
 
                        "CREATE TABLE frames (ID           INTEGER PRIMARY KEY AUTOINCREMENT,          \n"
                        "                     ptr          INTEGER UNIQUE,                             \n"
-                       "                     userType     TEXT,                                       \n"
+                       "                     --userType     TEXT,                                       \n"
                        "                     attach       TEXT CHECK (attach IN ('MDI', 'Dock')),     \n"
                        "                     docWidgetID  INTEGER UNIQUE,                             \n"
                        "                     mainWindowID INTEGER,                                    \n"
@@ -215,21 +215,21 @@ void Emdi::_dbInitDb() {
                        "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,      \n"
                        "                          ptr         INTEGER);                               \n",
 
-//                       "CREATE TRIGGER multidocks_insert_fail                                         \n"
-//                       "    AFTER INSERT ON frames                                                    \n"
-//                       "WHEN                                                                          \n"
-//                       "    (" + subq + ")                                                            \n"
-//                       "BEGIN                                                                         \n"
-//                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
-//                       "END;                                                                            ",
-                       
-//                       "CREATE TRIGGER multidocks_update_fail                                         \n"
-//                       "    AFTER UPDATE ON frames                                                    \n"
-//                       "WHEN                                                                          \n"
-//                       "    (" + subq + ")                                                            \n"
-//                       "BEGIN                                                                         \n"
-//                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
-//                       "END;                                                                            "
+                       "CREATE TRIGGER multidocks_insert_fail                                         \n"
+                       "    AFTER INSERT ON frames                                                    \n"
+                       "WHEN                                                                          \n"
+                       "    (" + subq + ")                                                            \n"
+                       "BEGIN                                                                         \n"
+                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+                       "END;                                                                            ",
+
+                       "CREATE TRIGGER multidocks_update_fail                                         \n"
+                       "    AFTER UPDATE ON frames                                                    \n"
+                       "WHEN                                                                          \n"
+                       "    (" + subq + ")                                                            \n"
+                       "BEGIN                                                                         \n"
+                       "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
+                       "END;                                                                            "
                       };
     for (QString qs: qsl)
         if (!query.exec(qs))
@@ -269,15 +269,22 @@ std::optional<DocWidgetsRecord> Emdi::_dbFindDockWigetsRecordByUserTypeDocID(con
 void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
                        AttachmentType at, unsigned int mwID, unsigned int dwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,docWidgetID,mainWindowID) "
-                                  "VALUES (%llu,'%s','%s',%u,%u);", uint64_t(ptr), userType.c_str(),
+//    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,docWidgetID,mainWindowID) "
+//                                  "VALUES (%llu,'%s','%s',%u,%u);", uint64_t(ptr), userType.c_str(),
+//                                  at == AttachmentType::Dock ? "Dock" : "MDI", dwID, mwID);
+    QString s = QString::asprintf("INSERT INTO frames (ptr,attach,docWidgetID,mainWindowID) "
+                                  "VALUES (%llu,'%s',%u,%u);", uint64_t(ptr),
                                   at == AttachmentType::Dock ? "Dock" : "MDI", dwID, mwID);
     if (!query.exec(s))
         fatalStr(querr("Could not execute add Frame", query), __LINE__);
 }
 std::optional<FramesRecord> Emdi::_dbFindExistingDockFrame(const std::string & userType, unsigned int mainWindowID){
-    QString s = QString::asprintf("SELECT * FROM frames WHERE \"userType\" IS '%s' AND \"mainWindowID\" IS %u",
-                userType.c_str(), mainWindowID);
+    QString s = QString("SELECT frames.* FROM frames \n"
+                        "JOIN   docWidgets\n"
+                        "ON     frames.docWidgetID == docWidgets.ID\n"
+                        "WHERE  docWidgets.userType == '%1' AND\n"
+                        "       mainWindowID IS %2\n"
+                        "LIMIT  1").arg(userType.c_str()).arg(mainWindowID);
     return getRecord<FramesRecord>(s);
 }
 void Emdi::_dbUpdateFrameDocWidgetID(unsigned int ID, unsigned int docWidgetID) {
