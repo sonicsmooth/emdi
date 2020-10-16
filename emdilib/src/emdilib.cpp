@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QMdiArea>
+#include <QMdiSubWindow>
 #include <QObject>
 #include <QString>
 #include <QSqlDatabase>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <iterator>
 #include <optional>
+#include <vector>
 
 
 template<> Document    * qVal<Document    *>(const QSqlQuery & query, int i) {
@@ -41,29 +43,34 @@ template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QStr
     int i = query.record().indexOf(field);
     return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
 }
-QString selectStr(const QString & table, const QString & field, unsigned int i) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(i);
+QString limitstr(int limit) {
+    if (limit >= 0)
+        return QString(" LIMIT %1").arg(limit);
+    return "";
 }
-QString selectStr(const QString & table, const QString & field, const std::string & str) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3' LIMIT 1").
-            arg(table).arg(field).arg(str.c_str());
+QString selectStr(const QString & table, const QString & field, unsigned int i, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3%4;").
+            arg(table).arg(field).arg(i).arg(limitstr(limit));
 }
-QString selectStr(const QString & table, const QString & field, const QMainWindow *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
+QString selectStr(const QString & table, const QString & field, const std::string & str, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3'%4;").
+            arg(table).arg(field).arg(str.c_str()).arg(limitstr(limit));
 }
-QString selectStr(const QString & table, const QString & field, const QWidget *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
+QString selectStr(const QString & table, const QString & field, const QMainWindow *ptr, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3%4;").
+        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
 }
-QString selectStr(const QString & table, const QString & field, const Document *ptr) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3 LIMIT 1").
-            arg(table).arg(field).arg(uint64_t(ptr));
+QString selectStr(const QString & table, const QString & field, const QWidget *ptr, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3%4;").
+        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
 }
-QString selectStr(const QString & table, const QString & field, AttachmentType at) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3' LIMIT 1").
-            arg(table).arg(field).arg(attach2str<QString>(at));
+QString selectStr(const QString & table, const QString & field, const Document *ptr, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS %3%4;").
+        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
+}
+QString selectStr(const QString & table, const QString & field, AttachmentType at, int limit) {
+    return QString("SELECT * FROM %1 WHERE \"%2\" IS '%3'%4;").
+        arg(table).arg(field).arg(attach2str<QString>(at)).arg(limitstr(limit));
 }
 
 template<> QString tableName<DocRecord>() {return "docs";}
@@ -107,21 +114,18 @@ DocWidgetsRecord & DocWidgetsRecord::operator=(const DocWidgetsRecord & other) {
 FramesRecord::FramesRecord() :
     ID(0),
     ptr(nullptr),
-    userType(""),
     attach(AttachmentType::ERROR),
     mainWindowID(0),
     docWidgetID(0){}
 FramesRecord::FramesRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
-    userType(qVal<QString>(query, "userType").toStdString()),
     attach(str2attach(qVal<QString>(query, "attach"))),
     mainWindowID(qVal<decltype(mainWindowID)>(query, "mainWindowID")),
     docWidgetID(qVal<decltype(docWidgetID)>(query, "docWidgetID")){}
 FramesRecord & FramesRecord::operator=(const FramesRecord & other) {
     this->ID = other.ID;
     this->ptr = other.ptr;
-    this->userType = other.userType;
     this->attach = other.attach;
     this->mainWindowID = other.mainWindowID;
     this->docWidgetID = other.docWidgetID;
@@ -182,12 +186,13 @@ void Emdi::_dbInitDb() {
     db.open();
     QSqlQuery query(db);
     const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
-                       "  (SELECT DISTINCT docWidgets.userType, mainWindowID, COUNT(docWidgets.userType)>1 as fail   \n"
-                       "   FROM            frames                                                     \n"
-                       "   LEFT JOIN       docWidgets                                                 \n"
-                       "   ON              frames.docWidgetID == docWidgets.ID                        \n"
-                       "   WHERE           attach is 'Dock'                                           \n"
-                       "   GROUP BY frames.mainWindowID, docWidgets.userType)                             \n";
+                       "    (SELECT DISTINCT docWidgets.userType, mainWindowID,                       \n"
+                       "                     COUNT(docWidgets.userType)>1 as fail                     \n"
+                       "     FROM            frames                                                   \n"
+                       "     LEFT JOIN       docWidgets                                               \n"
+                       "     ON              frames.docWidgetID = docWidgets.ID                       \n"
+                       "     WHERE           attach is 'Dock'                                         \n"
+                       "     GROUP BY frames.mainWindowID, docWidgets.userType)                       \n";
 
     QStringList qsl = {"DROP TABLE IF EXISTS docs;                                                      ",
                        "DROP TABLE IF EXISTS docWidgets;                                                ",
@@ -205,7 +210,6 @@ void Emdi::_dbInitDb() {
 
                        "CREATE TABLE frames (ID           INTEGER PRIMARY KEY AUTOINCREMENT,          \n"
                        "                     ptr          INTEGER UNIQUE,                             \n"
-                       "                     --userType     TEXT,                                       \n"
                        "                     attach       TEXT CHECK (attach IN ('MDI', 'Dock')),     \n"
                        "                     docWidgetID  INTEGER UNIQUE,                             \n"
                        "                     mainWindowID INTEGER,                                    \n"
@@ -266,12 +270,8 @@ std::optional<DocWidgetsRecord> Emdi::_dbFindDockWigetsRecordByUserTypeDocID(con
                         arg(userType.c_str()).arg(docID);
     return getRecord<DocWidgetsRecord>(s);
 }
-void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
-                       AttachmentType at, unsigned int mwID, unsigned int dwID) {
+void Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, unsigned int mwID, unsigned int dwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-//    QString s = QString::asprintf("INSERT INTO frames (ptr,userType,attach,docWidgetID,mainWindowID) "
-//                                  "VALUES (%llu,'%s','%s',%u,%u);", uint64_t(ptr), userType.c_str(),
-//                                  at == AttachmentType::Dock ? "Dock" : "MDI", dwID, mwID);
     QString s = QString::asprintf("INSERT INTO frames (ptr,attach,docWidgetID,mainWindowID) "
                                   "VALUES (%llu,'%s',%u,%u);", uint64_t(ptr),
                                   at == AttachmentType::Dock ? "Dock" : "MDI", dwID, mwID);
@@ -281,8 +281,8 @@ void Emdi::_dbAddFrame(const QWidget *ptr, const std::string & userType,
 std::optional<FramesRecord> Emdi::_dbFindExistingDockFrame(const std::string & userType, unsigned int mainWindowID){
     QString s = QString("SELECT frames.* FROM frames \n"
                         "JOIN   docWidgets\n"
-                        "ON     frames.docWidgetID == docWidgets.ID\n"
-                        "WHERE  docWidgets.userType == '%1' AND\n"
+                        "ON     frames.docWidgetID = docWidgets.ID\n"
+                        "WHERE  docWidgets.userType = '%1' AND\n"
                         "       mainWindowID IS %2\n"
                         "LIMIT  1").arg(userType.c_str()).arg(mainWindowID);
     return getRecord<FramesRecord>(s);
@@ -295,7 +295,45 @@ void Emdi::_dbUpdateFrameDocWidgetID(unsigned int ID, unsigned int docWidgetID) 
     if (!query.exec(s))
         fatalStr(querr("Could not update frames table", query), __LINE__);
 }
-
+void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
+    // Figure out the docWidgets, the frames, and the userTypes from sw
+    if (!sw)
+        return;
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    auto mwropt = getRecord<MainWindowsRecord>("ptr", sw->window());
+    assert(mwropt);
+    unsigned int mwid = mwropt->ID;
+    QString s = QString(
+        "SELECT docWidgets.ptr as \"docWidgetPtr\",            \n"
+        "       eut.frptr as \"framePtr\", docWidgets.userType \n"
+        "FROM   docWidgets                                     \n"
+        "JOIN   (SELECT userType, frames.ptr as \"frptr\"      \n"
+        "        FROM   docWidgets                             \n"
+        "        JOIN   frames                                 \n"
+        "        ON     docWidgets.ID = frames.docWidgetID     \n"
+        "        WHERE  frames.attach = 'Dock' AND             \n"
+        "               frames.mainWindowID = %1) as eut       \n"
+        "ON     eut.userType = docWidgets.userType             \n"
+        "JOIN  (SELECT docID, frames.ptr as \"framePtr\"       \n"
+        "       FROM   docWidgets                              \n"
+        "       JOIN   frames                                  \n"
+        "       ON     docWidgets.ID = frames.docWidgetID      \n"
+        "       WHERE  frames.ptr = %2) AS selectedDoc         \n"
+        "ON     docWidgets.docID = selectedDoc.docID;          \n").
+        arg(mwid).arg(uint64_t(sw));
+   if (!query.exec(s))
+       fatalStr(querr("Could not run _onMdiActivated", query), __LINE__);
+   while (query.next()) {
+       auto userType = qVal<QString>(query, "userType");
+       auto *docWidget = qVal<QWidget *>(query, "docWidgetPtr");
+       auto *wframe = qVal<QWidget *>(query, "framePtr");
+       auto *frame = dynamic_cast<QDockWidget *>(wframe);
+       if (!frame)
+           throw(std::logic_error("Could not retrieve pointer"));
+       frame->setWidget(docWidget);
+       frame->setWindowTitle(userType);
+    }
+}
 void Emdi::AddMainWindow(const QMainWindow *mw) {
     _dbAddMainWindow(mw);
 }
@@ -325,7 +363,6 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
     }
 
-
     // Find appropriate window record
     MainWindowsRecord mwr;
     if (mainWindow) {
@@ -339,33 +376,34 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         mainWindow = mwr.ptr;
     }
 
-    // Create new MDI view
+    // Create new or reuse MDI view
     if (at == AttachmentType::MDI) {
         QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
         if (!mdi) {
             mdi = new QMdiArea();
             mainWindow->setCentralWidget(mdi);
+            QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
         }
         QMdiSubWindow *frame = new QMdiSubWindow();
         frame->setWidget(docWidget);
         frame->setWindowTitle(QString::fromStdString(userType));
         mdi->addSubWindow(frame);
-        _dbAddFrame(frame, userType, at, mwr.ID, dwr.ID);
+        _dbAddFrame(frame, at, mwr.ID, dwr.ID);
     }
 
-    // Create new, or reuse DockWidget
+    // Create new or reuse DockWidget
     else if (at == AttachmentType::Dock) {
         QDockWidget *frame = nullptr;
         // Find frame with this userType and Dock and mainWindowID
         auto fropt = _dbFindExistingDockFrame(userType, mwr.ID); // See about removing userType from frames
-        if (fropt) {
+        if (fropt) { // reuse
             frame = static_cast<QDockWidget *>(fropt->ptr);
             _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
         }
-        else {
+        else { // new
             frame = new QDockWidget();
             mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
-            _dbAddFrame(frame, userType, at, mwr.ID, dwr.ID);
+            _dbAddFrame(frame, at, mwr.ID, dwr.ID);
         }
         frame->setWidget(docWidget);
         frame->setWindowTitle(QString::fromStdString(userType));

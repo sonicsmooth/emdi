@@ -11,8 +11,7 @@
 #include <memory>
 #include <string>
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
     MainWindow w;
     w.setCentralWidget(nullptr);
@@ -30,11 +29,14 @@ int main(int argc, char *argv[])
     emdi.AddDocument(&doc1);
     emdi.AddDocument(&doc2);   
 
-    emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
-    emdi.ShowView(file2, "SymView", AttachmentType::MDI);
     emdi.ShowView(file1, "Properties", AttachmentType::Dock);
     emdi.ShowView(file2, "Properties", AttachmentType::Dock);
-    emdi.ShowView(file1, "Properties", AttachmentType::Dock);
+    emdi.ShowView(file1, "Explorer", AttachmentType::Dock);
+    emdi.ShowView(file2, "Explorer", AttachmentType::Dock);
+    emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
+    emdi.ShowView(file2, "Schematic", AttachmentType::MDI);
+    emdi.ShowView(file1, "Symbol", AttachmentType::MDI);
+    emdi.ShowView(file2, "Symbol", AttachmentType::MDI);
 
 
 #if defined(QT_DEBUG)
@@ -44,6 +46,6 @@ int main(int argc, char *argv[])
 #endif
 
     w.show();
-
-    return a.exec();
+    int x = a.exec();
+    return x;
 }

@@ -8,7 +8,7 @@
 
 class Document {
 public:
-    virtual ~Document() {qDebug("Document::~Document()");}
+    virtual ~Document() {/*qDebug("Document::~Document()");*/}
     virtual QWidget *newView(const std::string & frameType) const = 0;
     virtual const std::string & name() const = 0;
 };
