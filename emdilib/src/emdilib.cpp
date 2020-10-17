@@ -194,17 +194,17 @@ void Emdi::_dbInitDb() {
                        "     WHERE           attach is 'Dock'                                         \n"
                        "     GROUP BY frames.mainWindowID, docWidgets.userType)                       \n";
 
+    const
     QStringList qsl = {"DROP TABLE IF EXISTS docs;                                                      ",
                        "DROP TABLE IF EXISTS docWidgets;                                                ",
                        "DROP TABLE IF EXISTS frames;                                                    ",
                        "DROP TABLE IF EXISTS mainWindows;                                               ",
-                       "DROP VIEW IF EXISTS toomanydocks;                                               ",
                        "CREATE TABLE docs (ID   INTEGER PRIMARY KEY AUTOINCREMENT,                    \n"
-                       "                   ptr  INTEGER,                                              \n"
+                       "                   ptr  INTEGER UNIQUE,                                       \n"
                        "                   name TEXT);                                                  ",
 
                        "CREATE TABLE docWidgets  (ID       INTEGER PRIMARY KEY AUTOINCREMENT,         \n"
-                       "                          ptr      INTEGER,                                   \n"
+                       "                          ptr      INTEGER UNIQUE,                            \n"
                        "                          userType TEXT,                                      \n"
                        "                          docID    REFERENCES docs(ID));                        ",
 
@@ -217,7 +217,7 @@ void Emdi::_dbInitDb() {
                        "                     FOREIGN KEY(mainWindowID) REFERENCES mainWindows(ID));   \n",
 
                        "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,      \n"
-                       "                          ptr         INTEGER);                               \n",
+                       "                          ptr         INTEGER UNIQUE);                        \n",
 
                        "CREATE TRIGGER multidocks_insert_fail                                         \n"
                        "    AFTER INSERT ON frames                                                    \n"
@@ -233,8 +233,7 @@ void Emdi::_dbInitDb() {
                        "    (" + subq + ")                                                            \n"
                        "BEGIN                                                                         \n"
                        "    SELECT RAISE(ABORT, 'Cannot allow more than one userType in mainWindow'); \n"
-                       "END;                                                                            "
-                      };
+                       "END;                                                                            "};
     for (QString qs: qsl)
         if (!query.exec(qs))
             fatalStr(querr("Could not init", query), __LINE__);
@@ -264,7 +263,6 @@ void Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, uns
         fatalStr(querr("Could not execute add docWidget", query), __LINE__);
 }
 std::optional<DocWidgetsRecord> Emdi::_dbFindDockWigetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("SELECT * from DocWidgets WHERE \"userType\" IS '%1' AND \n"
                         "                               \"docID\" is %2").
                         arg(userType.c_str()).arg(docID);
@@ -334,8 +332,29 @@ void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
        frame->setWindowTitle(userType);
     }
 }
-void Emdi::AddMainWindow(const QMainWindow *mw) {
-    _dbAddMainWindow(mw);
+void Emdi::_onMdiClosed(QObject *sw) {
+    // dynamic_cast and qobject_cast don't work
+    QMdiSubWindow *mdiSubWindow = static_cast<QMdiSubWindow *>(sw);
+    FramesRecord fr = *getRecord<FramesRecord>("ptr", mdiSubWindow);
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QStringList qsl = {QString("BEGIN TRANSACTION;"),
+                       QString("DELETE FROM frames WHERE ID == %1;").arg(fr.ID),
+                       QString("DELETE FROM docWidgets WHERE ID == %1;").arg(fr.docWidgetID),
+                       QString("COMMIT;")};
+    for (QString qs: qsl)
+        if (!query.exec(qs))
+            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
+
+}
+void Emdi::AddMainWindow(QMainWindow *mainWindow) {
+    // Make sure mainwindow has MDI area
+    _dbAddMainWindow(mainWindow);
+    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
+    if (mdi)
+        return;
+    mdi = new QMdiArea();
+    mainWindow->setCentralWidget(mdi);
+    QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
 }
 void Emdi::AddDocument(const Document *doc) {
     _dbAddDocument(doc);
@@ -358,33 +377,27 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         dwr = *dwropt;
     }
     else {
+        doc->init(); // generic version of "open"
         docWidget = doc->newView(userType);// assert docWidget
         _dbAddDocWidget(docWidget, userType, dropt->ID);
         dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
     }
 
-    // Find appropriate window record
+    // Find mainWindow record
     MainWindowsRecord mwr;
     if (mainWindow) {
-        auto mwropt = getRecord<MainWindowsRecord>("ptr", mainWindow);
-        mwr = *mwropt;
-        assert(mwr.ptr == mainWindow);
-    }
-    else {
-        auto mwropt = _dbFindLatestMainWindow();
-        mwr = *mwropt;
+        mwr = *getRecord<MainWindowsRecord>("ptr", mainWindow);
+    } else {
+        mwr = *_dbFindLatestMainWindow();
         mainWindow = mwr.ptr;
     }
 
     // Create new or reuse MDI view
     if (at == AttachmentType::MDI) {
         QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
-        if (!mdi) {
-            mdi = new QMdiArea();
-            mainWindow->setCentralWidget(mdi);
-            QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
-        }
         QMdiSubWindow *frame = new QMdiSubWindow();
+        frame->setAttribute(Qt::WA_DeleteOnClose);
+        QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
         frame->setWidget(docWidget);
         frame->setWindowTitle(QString::fromStdString(userType));
         mdi->addSubWindow(frame);
@@ -399,8 +412,7 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         if (fropt) { // reuse
             frame = static_cast<QDockWidget *>(fropt->ptr);
             _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
-        }
-        else { // new
+        } else { // new
             frame = new QDockWidget();
             mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
             _dbAddFrame(frame, at, mwr.ID, dwr.ID);

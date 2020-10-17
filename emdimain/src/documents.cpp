@@ -12,6 +12,12 @@ TxtDocument::TxtDocument(const std::string & docId) :
 TxtDocument::~TxtDocument() {
     //qDebug("TxtDocument::~TxtDocument()");
 }
+void TxtDocument::init() {
+    qDebug("TxtDocument::init()");
+}
+void TxtDocument::done() {
+    qDebug("TxtDocument::done()");
+}
 
 QWidget *TxtDocument::newView(const std::string & userType) const {
     (void) userType;
@@ -34,6 +40,12 @@ SchDocument::SchDocument(const std::string & docId) :
 }
 SchDocument::~SchDocument() {
     //qDebug("SchDocument::~SchDocument()");
+}
+void SchDocument::init() {
+    qDebug("SchDocument::init()");
+}
+void SchDocument::done() {
+    qDebug("SchDocument::done()");
 }
 QWidget *SchDocument::newView(const std::string & userType) const {
     (void) userType;

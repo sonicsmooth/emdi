@@ -18,7 +18,7 @@ T attach2str(AttachmentType at) {
     switch(at) {
     case AttachmentType::MDI: return "MDI";
     case AttachmentType::Dock: return "Dock";
-    case AttachmentType::ERROR: return "ERROR";
+    default: return "ERROR";
     }
 }
 template<typename T>
@@ -151,12 +151,13 @@ private:
 public:
     Emdi();
     ~Emdi();
-    void AddMainWindow(const QMainWindow *);
+    void AddMainWindow(QMainWindow *);
     void AddDocument(const Document *);
     void ShowView(const std::string & docName, const std::string & userType,
                   AttachmentType at, QMainWindow *mainWindow = nullptr);
 public slots:
     void _onMdiActivated(QMdiSubWindow *);
+    void _onMdiClosed(QObject *);
 
 };
 
