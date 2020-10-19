@@ -26,22 +26,27 @@ template<> Document    * qVal<Document    *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<Document *>(query.value(i).toULongLong());
 }
 template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
-    return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+    QMainWindow *val = reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+    return val;
 }
 template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, int i) {
-    return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+    QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+    return val;
 }
 template<> Document    * qVal<Document    *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
-    return reinterpret_cast<Document *>(query.value(i).toULongLong());
+    Document *val = reinterpret_cast<Document *>(query.value(i).toULongLong());
+    return val;
 }
 template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
-    return reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+    QMainWindow *val = reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
+    return val;
 }
 template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
-    return reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+    QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
+    return val;
 }
 QString limitstr(int limit) {
     if (limit >= 0)
@@ -337,14 +342,45 @@ void Emdi::_onMdiClosed(QObject *sw) {
     QMdiSubWindow *mdiSubWindow = static_cast<QMdiSubWindow *>(sw);
     FramesRecord fr = *getRecord<FramesRecord>("ptr", mdiSubWindow);
     QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString docIDsToDelete = "SELECT ID from docs                       \n"
+                             "EXCEPT                                    \n"
+                             "SELECT DISTINCT docID                     \n"
+                             "FROM   docWidgets                         \n"
+                             "JOIN   frames                             \n"
+                             "ON     docWidgets.ID = frames.docWidgetID \n"
+                             "WHERE  frames.attach != 'Dock'";
     QStringList qsl = {QString("BEGIN TRANSACTION;"),
+                       QString("SAVEPOINT DEL1"),
                        QString("DELETE FROM frames WHERE ID == %1;").arg(fr.ID),
                        QString("DELETE FROM docWidgets WHERE ID == %1;").arg(fr.docWidgetID),
-                       QString("COMMIT;")};
-    for (QString qs: qsl)
-        if (!query.exec(qs))
-            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
+                       QString("RELEASE DEL1")};
 
+    // Do the first part of the transaction
+    for (QString qs: qsl) {
+        if (!query.exec(qs)) {
+            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__); }}
+
+    // Read the docs to delete, close the doc
+    QString condemnedDocsStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
+    auto condemnedDocs = getRecords<DocRecord>(condemnedDocsStr);
+    assert(condemnedDocs.size() <= 1);
+    if (condemnedDocs.size())
+        condemnedDocs[0].ptr->done();
+
+    // Read the docWidgets to delete, delete them
+    // Should all be associated with QDockWidgets
+    // If smart, then roll back everything if this delete fails
+    QString dwToDelete = QString("SELECT * FROM docWidgets WHERE docID = (%1)").arg(docIDsToDelete);
+    for (auto dw : getRecords<DocWidgetsRecord>(dwToDelete))
+        delete dw.ptr;
+
+    // Finish the transaction
+    qsl = QStringList({QString("DELETE FROM docWidgets WHERE docID = (%1);").arg(docIDsToDelete),
+                       QString("DELETE FROM docs WHERE ID = (%1);").arg(docIDsToDelete),
+                       QString("COMMIT;")});
+    for (QString qs: qsl) {
+       if (!query.exec(qs)) {
+           fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);}}
 }
 void Emdi::AddMainWindow(QMainWindow *mainWindow) {
     // Make sure mainwindow has MDI area

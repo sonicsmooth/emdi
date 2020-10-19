@@ -13,10 +13,10 @@ TxtDocument::~TxtDocument() {
     //qDebug("TxtDocument::~TxtDocument()");
 }
 void TxtDocument::init() {
-    qDebug("TxtDocument::init()");
+    qDebug() << "TxtDocument::init()" << m_name.c_str();
 }
 void TxtDocument::done() {
-    qDebug("TxtDocument::done()");
+    qDebug() << "TxtDocument::done() " << m_name.c_str();
 }
 
 QWidget *TxtDocument::newView(const std::string & userType) const {
@@ -42,10 +42,10 @@ SchDocument::~SchDocument() {
     //qDebug("SchDocument::~SchDocument()");
 }
 void SchDocument::init() {
-    qDebug("SchDocument::init()");
+    qDebug() << "SchDocument::init()" << m_name.c_str();
 }
 void SchDocument::done() {
-    qDebug("SchDocument::done()");
+    qDebug() << "SchDocument::done() " << m_name.c_str();
 }
 QWidget *SchDocument::newView(const std::string & userType) const {
     (void) userType;

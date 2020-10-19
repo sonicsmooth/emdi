@@ -72,12 +72,15 @@ QString querr(const QString &, const QSqlQuery &);
 
 template<typename T>
 T qVal(const QSqlQuery & query, int i = 0) {
-    return qvariant_cast<T>(query.value(i));
+    T val = qvariant_cast<T>(query.value(i));
+    return val;
 }
 template<typename T>
 T qVal(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
-    return qvariant_cast<T>(query.value(i));
+    assert(i >= 0);
+    T val = qvariant_cast<T>(query.value(i));
+    return val;
 }
 
 QString limitstr(int);
@@ -99,7 +102,7 @@ std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
     if (!query.exec(s))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(query.first())
-        return RET_T(query);
+        return query;
     return std::nullopt;
 
 }
@@ -111,7 +114,7 @@ std::vector<RET_T> getRecords(const QString & field, ARG_T val) {
         fatalStr(querr("Could not execute find record", query), __LINE__);
     std::vector<RET_T> vec;
     while(query.next())
-        vec.push_back(RET_T(query));
+        vec.push_back(query);
     return vec;
 }
 template<typename RET_T>
@@ -120,7 +123,7 @@ std::optional<RET_T> getRecord(const QString & select) {
     if (!query.exec(select))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(query.first())
-        return RET_T(query);
+        return query;
      return std::nullopt;
 }
 template<typename RET_T>
