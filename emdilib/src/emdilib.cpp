@@ -246,8 +246,10 @@ void Emdi::_dbInitDb() {
 
 void Emdi::_dbAddDocument(const Document *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString::asprintf("INSERT INTO docs (ptr,name) VALUES (%llu, '%s')", uint64_t(ptr), ptr->name().c_str());
-    if (!query.exec(s))
+    query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
+    query.bindValue(":ptr", uint64_t(ptr));
+    query.bindValue(":name", QString::fromStdString(ptr->name()));
+    if (!query.exec())
         fatalStr(querr("Could not execute add Document", query), __LINE__);
 }
 void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
@@ -361,6 +363,7 @@ void Emdi::_onMdiClosed(QObject *sw) {
             fatalStr(querr("Could not delete frame and docWidget", query), __LINE__); }}
 
     // Read the docs to delete, close the doc
+    // TODO: Fix the bug when name is single quote
     QString condemnedDocsStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
     auto condemnedDocs = getRecords<DocRecord>(condemnedDocsStr);
     assert(condemnedDocs.size() <= 1);
@@ -413,48 +416,43 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         dwr = *dwropt;
     }
     else {
-        doc->init(); // generic version of "open"
+        if (!doc->isActive())
+            doc->init(); // generic version of "open"
         docWidget = doc->newView(userType);// assert docWidget
         _dbAddDocWidget(docWidget, userType, dropt->ID);
         dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
     }
 
     // Find mainWindow record
-    MainWindowsRecord mwr;
-    if (mainWindow) {
-        mwr = *getRecord<MainWindowsRecord>("ptr", mainWindow);
-    } else {
-        mwr = *_dbFindLatestMainWindow();
-        mainWindow = mwr.ptr;
-    }
+    MainWindowsRecord mwr = mainWindow ? *getRecord<MainWindowsRecord>("ptr", mainWindow) :
+                                         *_dbFindLatestMainWindow();
+    mainWindow = mwr.ptr;
 
     // Create new or reuse MDI view
+    QWidget *frame = nullptr;
     if (at == AttachmentType::MDI) {
-        QMdiArea *mdi = static_cast<QMdiArea *>(mainWindow->centralWidget());
-        QMdiSubWindow *frame = new QMdiSubWindow();
+        frame = new QMdiSubWindow();
         frame->setAttribute(Qt::WA_DeleteOnClose);
         QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-        frame->setWidget(docWidget);
-        frame->setWindowTitle(QString::fromStdString(userType));
-        mdi->addSubWindow(frame);
+        static_cast<QMdiSubWindow *>(frame)->setWidget(docWidget);
+        static_cast<QMdiArea *>(mainWindow->centralWidget())->addSubWindow(frame);
         _dbAddFrame(frame, at, mwr.ID, dwr.ID);
     }
 
     // Create new or reuse DockWidget
     else if (at == AttachmentType::Dock) {
-        QDockWidget *frame = nullptr;
         // Find frame with this userType and Dock and mainWindowID
         auto fropt = _dbFindExistingDockFrame(userType, mwr.ID); // See about removing userType from frames
         if (fropt) { // reuse
-            frame = static_cast<QDockWidget *>(fropt->ptr);
+            frame = fropt->ptr;
             _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
         } else { // new
             frame = new QDockWidget();
-            mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
+            mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, static_cast<QDockWidget *>(frame));
             _dbAddFrame(frame, at, mwr.ID, dwr.ID);
         }
-        frame->setWidget(docWidget);
-        frame->setWindowTitle(QString::fromStdString(userType));
-
+        static_cast<QDockWidget *>(frame)->setWidget(docWidget);
     }
+    frame->setWindowTitle(QString::fromStdString(userType));
+    frame->show();
 }
