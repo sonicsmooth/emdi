@@ -79,10 +79,6 @@ QString selectStr(const QString & table, const QString & field, AttachmentType a
 }
 
 
-template<> QString tableName<DocRecord>() {return "docs";}
-template<> QString tableName<DocWidgetsRecord>() {return "docWidgets";}
-template<> QString tableName<FramesRecord>() {return "frames";}
-template<> QString tableName<MainWindowsRecord>() {return "mainWindows";}
 
 DocRecord::DocRecord():
     ID(0),
@@ -452,7 +448,8 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         // Find frame with this userType and Dock and mainWindowID
         auto fropt = _dbFindExistingDockFrame(userType, mwr.ID); // See about removing userType from frames
         if (fropt) { // reuse
-            frame = fropt->ptr;
+            frame = dynamic_cast<QDockWidget *>(fropt->ptr);
+            assert(frame);
             _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
         } else { // new
             frame = new QDockWidget();

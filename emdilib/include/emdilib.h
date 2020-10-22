@@ -92,8 +92,12 @@ QString selectStr(const QString & table, const QString & field, const Document *
 QString selectStr(const QString & table, const QString & field, AttachmentType, int = -1);
 
 
-template<typename T>
-QString tableName() {}
+template<typename T> QString tableName() {return "undefined";}
+template<> inline QString tableName<DocRecord>() {return "docs";}
+template<> inline QString tableName<DocWidgetsRecord>() {return "docWidgets";}
+template<> inline QString tableName<FramesRecord>() {return "frames";}
+template<> inline QString tableName<MainWindowsRecord>() {return "mainWindows";}
+
 
 template<typename RET_T, typename ARG_T>
 std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
