@@ -155,6 +155,7 @@ public:
     Emdi();
     ~Emdi();
     void AddMainWindow(QMainWindow *);
+    MainWindowsRecord GetMainWindow();
     void AddDocument(const Document *);
     void ShowView(const std::string & docName, const std::string & userType,
                   AttachmentType at, QMainWindow *mainWindow = nullptr);

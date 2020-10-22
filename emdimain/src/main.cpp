@@ -12,12 +12,35 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-
+#include <iomanip>
+#include <optional>
 #include <memory>
 #include <string>
+#include <sstream>
 
 using docVec_t = std::vector<std::unique_ptr<Document> >;
 
+template <typename T> std::string docString() {return "undefined";}
+template <> std::string docString<SchDocument>() {return "SchDocument_";}
+template <> std::string docString<TxtDocument>() {return "TxtDocument_";}
+
+template<typename T> std::string docName() {
+    static int idx = 0;
+    std::stringstream ss;
+    ss << docString<T>() << std::setfill('0') <<std::setw(2) << idx++;
+    return ss.str();
+}    
+
+template<typename T>
+void newDoc(Emdi & emdi, docVec_t & docVec) {
+    std::string docname = docName<T>();
+    auto p = std::make_unique<T>(docname);
+    emdi.AddDocument(p.get());
+    emdi.ShowView(docname, "Main Editor", AttachmentType::MDI);
+    docVec.push_back(std::move(p));
+}
+
+QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QWidget *w = new QWidget();
 
@@ -25,31 +48,26 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QVBoxLayout *vb = new QVBoxLayout();
     QPushButton *pb = new QPushButton("New Schematic Doc");
     vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){
-        QString text = QInputDialog::getText(nullptr, "New Schematic Doc", "Filename");
-        if (!text.isEmpty()) {
-            auto p = std::make_unique<SchDocument>(text.toStdString());
-            emdi.AddDocument(p.get());
-            emdi.ShowView(text.toStdString(), "Main Editor", AttachmentType::MDI);
-            docVec.push_back(std::move(p));
-        }});
+    QObject::connect(pb, &QPushButton::clicked, [&](){newDoc<SchDocument>(emdi, docVec);});
 
     pb = new QPushButton("New Text Doc");
     vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){
-        QString text = QInputDialog::getText(nullptr, "New Text Doc", "Filename");
-        if (!text.isEmpty()) {
-            auto p = std::make_unique<TxtDocument>(text.toStdString());
-            emdi.AddDocument(p.get());
-            emdi.ShowView(text.toStdString(), "Main Editor", AttachmentType::MDI);
-            docVec.push_back(std::move(p));
-        }});
-
-    pb = new QPushButton("View Main Editor");
-    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){newDoc<TxtDocument>(emdi, docVec);});
 
     pb = new QPushButton("View Properties");
     vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        QMainWindow *mainWindow = emdi.GetMainWindow().ptr;
+        QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
+        QMdiSubWindow *mdiSubWindow = mdi->activeSubWindow();
+        auto fr = getRecords<FramesRecord>("ptr", mdiSubWindow);
+        //auto fropt1 = getRecord<FramesRecord>("ptr", mdiSubWindow);
+        //auto fropt2 = getRecord<FramesRecord>("SELECT * FROM frames LIMIT 1;");
+//        auto dwopt = getRecord<DocWidgetsRecord>("ID", fropt->docWidgetID);
+//        auto dropt = getRecord<DocRecord>("ID", dwopt->docID);
+//        emdi.ShowView(dropt->name, dwopt->userType, AttachmentType::Dock, mainWindow);
+        });
+
 
     pb = new QPushButton("View Hierarchy");
     vb->addWidget(pb);

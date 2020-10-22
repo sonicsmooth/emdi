@@ -78,6 +78,7 @@ QString selectStr(const QString & table, const QString & field, AttachmentType a
         arg(table).arg(field).arg(attach2str<QString>(at)).arg(limitstr(limit));
 }
 
+
 template<> QString tableName<DocRecord>() {return "docs";}
 template<> QString tableName<DocWidgetsRecord>() {return "docWidgets";}
 template<> QString tableName<FramesRecord>() {return "frames";}
@@ -394,6 +395,13 @@ void Emdi::AddMainWindow(QMainWindow *mainWindow) {
     mdi = new QMdiArea();
     mainWindow->setCentralWidget(mdi);
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
+}
+MainWindowsRecord Emdi::GetMainWindow() {
+    auto mwr = _dbFindLatestMainWindow();
+    if (mwr)
+        return *mwr;
+    else
+        throw(std::logic_error("Can't find main window"));
 }
 void Emdi::AddDocument(const Document *doc) {
     _dbAddDocument(doc);
