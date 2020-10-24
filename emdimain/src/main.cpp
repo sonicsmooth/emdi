@@ -54,9 +54,11 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){newDoc<TxtDocument>("Main Editor", emdi, docVec);});
 
-    pb = new QPushButton("View Properties");
+    pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
+        // Find doc name as: mainWindow -> FramesRecord.docWidgetID ->
+        // DocWidgetsRecord.docID -> DocRecord.docID -> docRecord.name
         QMainWindow *mainWindow = emdi.GetMainWindow().ptr;
         QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
         QMdiSubWindow *mdiSubWindow = mdi->activeSubWindow();
@@ -79,7 +81,7 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
         });
 
 
-    pb = new QPushButton("View Hierarchy");
+    pb = new QPushButton("Hierarchy Dock");
     vb->addWidget(pb);
 
     vb->addStretch();
