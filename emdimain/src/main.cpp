@@ -61,9 +61,21 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
         QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
         QMdiSubWindow *mdiSubWindow = mdi->activeSubWindow();
         auto fropt = getRecord<FramesRecord>("ptr", mdiSubWindow);
-        auto dwopt = getRecord<DocWidgetsRecord>("ID", fropt->docWidgetID);
-        auto dropt = getRecord<DocRecord>("ID", dwopt->docID);
-        emdi.ShowView(dropt->name, "Properties", AttachmentType::Dock, mainWindow);
+        if (fropt) {
+            auto dwopt = getRecord<DocWidgetsRecord>("ID", fropt->docWidgetID);
+            if (dwopt) {
+                auto dropt = getRecord<DocRecord>("ID", dwopt->docID);
+                if (dropt) {
+                    emdi.ShowView(dropt->name, "Properties", AttachmentType::Dock, mainWindow);
+                }
+            }
+        } else {
+            emdi.ShowView("", "Properties", AttachmentType::Dock, mainWindow);
+        }
+        // TODO: When a new view is added, go through the existing docs and create
+        // a docWidget, so when the other doc's MDI is selected, there is a
+        // docWidget to attach.  The other option is to delay the creation of the
+        // docWidget until it's actually needed.
         });
 
 

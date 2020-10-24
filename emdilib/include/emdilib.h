@@ -150,7 +150,7 @@ private:
     void _dbAddMainWindow(const QMainWindow *);
     std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
     void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
-    std::optional<DocWidgetsRecord> _dbFindDockWigetsRecordByUserTypeDocID(const std::string &, unsigned int);
+    std::optional<DocWidgetsRecord> _dbFindDocWigetsRecordByUserTypeDocID(const std::string &, unsigned int);
     void _dbAddFrame(const QWidget *, AttachmentType, unsigned int, unsigned int);
     std::optional<FramesRecord> _dbFindExistingDockFrame(const std::string &, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);

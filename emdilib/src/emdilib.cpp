@@ -266,7 +266,7 @@ void Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, uns
     if (!query.exec(s))
         fatalStr(querr("Could not execute add docWidget", query), __LINE__);
 }
-std::optional<DocWidgetsRecord> Emdi::_dbFindDockWigetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
+std::optional<DocWidgetsRecord> Emdi::_dbFindDocWigetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
     QString s = QString("SELECT * from DocWidgets WHERE \"userType\" IS '%1' AND \n"
                         "                               \"docID\" is %2").
                         arg(userType.c_str()).arg(docID);
@@ -404,29 +404,32 @@ void Emdi::AddDocument(const Document *doc) {
 }
 void Emdi::ShowView(const std::string & docName, const std::string & userType,
                     AttachmentType at, QMainWindow *mainWindow) {
-    // docId is the unique string identifier for the document
-    // frameType is specific to the document, eg SchView, SymView, etc.
-    // AttachmentType is either MDI or Dock
-    // mw is the mainWindow to put the view in, otherwise nullptr for latest main window
+    // docId is the unique string identifier for the document. userType is
+    // specific to the document, eg SchView, SymView, etc. AttachmentType is
+    // either MDI or Dock. mainWindow is where things to, otherwise nullptr for
+    // latest main window. If docName is empty, then create empty DockWidget or
+    // MDISubWindow with given userType, or ignore command if frame exists.
 
-    // Retrieve the Document and create or retrieve view
-    auto dropt = getRecord<DocRecord>("name", docName);
-    Document *doc = dropt->ptr;
-    QWidget *docWidget = nullptr;
     DocWidgetsRecord dwr;
-    auto dwropt = _dbFindDockWigetsRecordByUserTypeDocID(userType, dropt->ID);
-    if (dwropt) {
-        docWidget = dwropt->ptr;
-        dwr = *dwropt;
-    }
-    else {
-        if (!doc->isActive())
-            doc->init(); // generic version of "open"
-        docWidget = doc->newView(userType);// assert docWidget
-        _dbAddDocWidget(docWidget, userType, dropt->ID);
-        dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
-    }
+    QWidget *docWidget = nullptr;
 
+    if (docName.size()) {
+        // Retrieve the Document and create or retrieve view
+        auto dropt = getRecord<DocRecord>("name", docName);
+        auto dwropt = _dbFindDocWigetsRecordByUserTypeDocID(userType, dropt->ID);
+        if (dwropt) {
+            docWidget = dwropt->ptr;
+            dwr = *dwropt;
+        }
+        else {
+            Document *doc = dropt->ptr;
+            if (!doc->isActive())
+                doc->init(); // generic version of "open"
+            docWidget = doc->newView(userType);// assert docWidget
+            _dbAddDocWidget(docWidget, userType, dropt->ID);
+            dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
+        }
+    }
     // Find mainWindow record
     MainWindowsRecord mwr = mainWindow ? *getRecord<MainWindowsRecord>("ptr", mainWindow) :
                                          *_dbFindLatestMainWindow();
@@ -438,7 +441,8 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
         frame = new QMdiSubWindow();
         frame->setAttribute(Qt::WA_DeleteOnClose);
         QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-        static_cast<QMdiSubWindow *>(frame)->setWidget(docWidget);
+        if (docWidget)
+            static_cast<QMdiSubWindow *>(frame)->setWidget(docWidget);
         static_cast<QMdiArea *>(mainWindow->centralWidget())->addSubWindow(frame);
         _dbAddFrame(frame, at, mwr.ID, dwr.ID);
     }
@@ -446,7 +450,8 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
     // Create new or reuse DockWidget
     else if (at == AttachmentType::Dock) {
         // Find frame with this userType and Dock and mainWindowID
-        auto fropt = _dbFindExistingDockFrame(userType, mwr.ID); // See about removing userType from frames
+        auto fropt = _dbFindExistingDockFrame(userType, mwr.ID);
+        // TODO: Find existing frame even if not associated with doc
         if (fropt) { // reuse
             frame = dynamic_cast<QDockWidget *>(fropt->ptr);
             assert(frame);
@@ -456,7 +461,8 @@ void Emdi::ShowView(const std::string & docName, const std::string & userType,
             mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, static_cast<QDockWidget *>(frame));
             _dbAddFrame(frame, at, mwr.ID, dwr.ID);
         }
-        static_cast<QDockWidget *>(frame)->setWidget(docWidget);
+        if(docWidget)
+            static_cast<QDockWidget *>(frame)->setWidget(docWidget);
     }
     frame->setWindowTitle(QString::fromStdString(userType));
     frame->show();
