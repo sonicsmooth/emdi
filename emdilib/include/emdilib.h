@@ -144,25 +144,29 @@ std::vector<RET_T> getRecords(const QString & select) {
 
 
 class Emdi : public QObject {
+    Q_OBJECT
 private:
     void _dbInitDb();
     void _dbAddDocument(const Document *);
     void _dbAddMainWindow(const QMainWindow *);
     std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
     void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
-    std::optional<DocWidgetsRecord> _dbFindDocWigetsRecordByUserTypeDocID(const std::string &, unsigned int);
+    //std::optional<DocWidgetsRecord> _dbFindDocWidgetsRecordByUserTypeDocID(const std::string &, unsigned int);
     void _dbAddFrame(const QWidget *, AttachmentType, unsigned int, unsigned int);
     std::optional<FramesRecord> _dbFindExistingDockFrame(const std::string &, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
+    
 
 public:
     Emdi();
     ~Emdi();
     void AddMainWindow(QMainWindow *);
-    MainWindowsRecord GetMainWindow();
+    MainWindowsRecord mainWindowsRecord(QMainWindow * = nullptr);
     void AddDocument(const Document *);
-    void ShowView(const std::string & docName, const std::string & userType,
-                  AttachmentType at, QMainWindow *mainWindow = nullptr);
+    void ShowMDIView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+    void ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+signals:
+    void destroy(void *);
 public slots:
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);

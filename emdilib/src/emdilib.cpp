@@ -266,12 +266,12 @@ void Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, uns
     if (!query.exec(s))
         fatalStr(querr("Could not execute add docWidget", query), __LINE__);
 }
-std::optional<DocWidgetsRecord> Emdi::_dbFindDocWigetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
-    QString s = QString("SELECT * from DocWidgets WHERE \"userType\" IS '%1' AND \n"
-                        "                               \"docID\" is %2").
-                        arg(userType.c_str()).arg(docID);
-    return getRecord<DocWidgetsRecord>(s);
-}
+// std::optional<DocWidgetsRecord> Emdi::_dbFindDocWidgetsRecordByUserTypeDocID(const std::string & userType, unsigned int docID) {
+//     QString s = QString("SELECT * from DocWidgets WHERE \"userType\" IS '%1' AND \n"
+//                         "                               \"docID\" is %2").
+//                         arg(userType.c_str()).arg(docID);
+//     return getRecord<DocWidgetsRecord>(s);
+// }
 void Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, unsigned int mwID, unsigned int dwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString::asprintf("INSERT INTO frames (ptr,attach,docWidgetID,mainWindowID) "
@@ -337,6 +337,9 @@ void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
     }
 }
 void Emdi::_onMdiClosed(QObject *sw) {
+    // Do this in one BEGIN...COMMIT transaction
+    // Need to break in the middle to grab the records of the affected
+    // docs and docWidgets.
     // dynamic_cast and qobject_cast don't work
     QMdiSubWindow *mdiSubWindow = static_cast<QMdiSubWindow *>(sw);
     FramesRecord fr = *getRecord<FramesRecord>("ptr", mdiSubWindow);
@@ -350,29 +353,21 @@ void Emdi::_onMdiClosed(QObject *sw) {
                              "WHERE  frames.attach != 'Dock'";
     QStringList qsl = {QString("BEGIN TRANSACTION;"),
                        QString("SAVEPOINT DEL1"),
-                       QString("DELETE FROM frames WHERE ID == %1;").arg(fr.ID),
-                       QString("DELETE FROM docWidgets WHERE ID == %1;").arg(fr.docWidgetID),
+                       QString("DELETE FROM frames WHERE ID = %1;").arg(fr.ID),
+                       QString("DELETE FROM docWidgets WHERE ID = %1;").arg(fr.docWidgetID),
                        QString("RELEASE DEL1")};
 
     // Do the first part of the transaction
     for (QString qs: qsl) {
         if (!query.exec(qs)) {
-            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__); }}
+            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
+        }
+    }
 
-    // Read the docs to delete, close the doc
+    // Read the docs, docWidgets to delete, close and delete after transaction
     // TODO: Fix the bug when name is single quote
-    QString condemnedDocsStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
-    auto condemnedDocs = getRecords<DocRecord>(condemnedDocsStr);
-    assert(condemnedDocs.size() <= 1);
-    if (condemnedDocs.size())
-        condemnedDocs[0].ptr->done();
-
-    // Read the docWidgets to delete, delete them
-    // Should all be associated with QDockWidgets
-    // If smart, then roll back everything if this delete fails
-    QString dwToDelete = QString("SELECT * FROM docWidgets WHERE docID = (%1)").arg(docIDsToDelete);
-    for (auto dw : getRecords<DocWidgetsRecord>(dwToDelete))
-        delete dw.ptr;
+    QString docsToDeleteStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
+    auto docsToDelete = getRecords<DocRecord>(docsToDeleteStr);
 
     // Finish the transaction
     qsl = QStringList({QString("DELETE FROM docWidgets WHERE docID = (%1);").arg(docIDsToDelete),
@@ -380,7 +375,14 @@ void Emdi::_onMdiClosed(QObject *sw) {
                        QString("COMMIT;")});
     for (QString qs: qsl) {
        if (!query.exec(qs)) {
-           fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);}}
+           fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
+       }
+    }
+
+    assert(docsToDelete.size() == 1);
+    docsToDelete[0].ptr->done();
+    emit destroy(docsToDelete[0].ptr);
+
 }
 void Emdi::AddMainWindow(QMainWindow *mainWindow) {
     // Make sure mainwindow has MDI area
@@ -392,8 +394,9 @@ void Emdi::AddMainWindow(QMainWindow *mainWindow) {
     mainWindow->setCentralWidget(mdi);
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
 }
-MainWindowsRecord Emdi::GetMainWindow() {
-    auto mwr = _dbFindLatestMainWindow();
+MainWindowsRecord Emdi::mainWindowsRecord(QMainWindow *mainWindow) {
+    auto mwr = mainWindow ? getRecord<MainWindowsRecord>("ptr", mainWindow) :
+                            _dbFindLatestMainWindow();
     if (mwr)
         return *mwr;
     else
@@ -402,68 +405,58 @@ MainWindowsRecord Emdi::GetMainWindow() {
 void Emdi::AddDocument(const Document *doc) {
     _dbAddDocument(doc);
 }
-void Emdi::ShowView(const std::string & docName, const std::string & userType,
-                    AttachmentType at, QMainWindow *mainWindow) {
-    // docId is the unique string identifier for the document. userType is
-    // specific to the document, eg SchView, SymView, etc. AttachmentType is
-    // either MDI or Dock. mainWindow is where things to, otherwise nullptr for
-    // latest main window. If docName is empty, then create empty DockWidget or
-    // MDISubWindow with given userType, or ignore command if frame exists.
-
+void Emdi::ShowMDIView(const std::string & docName, const std::string & userType, QMainWindow *mw) {
+    // Always new MDI view and new DocWidget attaching to doc given by docName.
+    // docName is critical -- error if not found or empty
+    // userType is not critical -- just used in title
+    assert(docName.size());
+    auto dropt = getRecord<DocRecord>("name", docName);
+    assert(dropt);
+    Document *doc = dropt->ptr;
+    if (!doc->isActive())
+        doc->init(); // generic version of "open"
+    QWidget *docWidget = doc->newView(userType);
     DocWidgetsRecord dwr;
-    QWidget *docWidget = nullptr;
-
-    if (docName.size()) {
-        // Retrieve the Document and create or retrieve view
-        auto dropt = getRecord<DocRecord>("name", docName);
-        auto dwropt = _dbFindDocWigetsRecordByUserTypeDocID(userType, dropt->ID);
-        if (dwropt) {
-            docWidget = dwropt->ptr;
-            dwr = *dwropt;
-        }
-        else {
-            Document *doc = dropt->ptr;
-            if (!doc->isActive())
-                doc->init(); // generic version of "open"
-            docWidget = doc->newView(userType);// assert docWidget
-            _dbAddDocWidget(docWidget, userType, dropt->ID);
-            dwr = *getRecord<DocWidgetsRecord>("ptr",docWidget);
-        }
-    }
-    // Find mainWindow record
-    MainWindowsRecord mwr = mainWindow ? *getRecord<MainWindowsRecord>("ptr", mainWindow) :
-                                         *_dbFindLatestMainWindow();
-    mainWindow = mwr.ptr;
-
-    // Create new or reuse MDI view
-    QWidget *frame = nullptr;
-    if (at == AttachmentType::MDI) {
-        frame = new QMdiSubWindow();
-        frame->setAttribute(Qt::WA_DeleteOnClose);
-        QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-        if (docWidget)
-            static_cast<QMdiSubWindow *>(frame)->setWidget(docWidget);
-        static_cast<QMdiArea *>(mainWindow->centralWidget())->addSubWindow(frame);
-        _dbAddFrame(frame, at, mwr.ID, dwr.ID);
+    if (docWidget) { // nullptr if doc doesn't support userType
+        _dbAddDocWidget(docWidget, userType, dropt->ID);
+        dwr = *getRecord<DocWidgetsRecord>("ptr", docWidget);
     }
 
-    // Create new or reuse DockWidget
-    else if (at == AttachmentType::Dock) {
-        // Find frame with this userType and Dock and mainWindowID
-        auto fropt = _dbFindExistingDockFrame(userType, mwr.ID);
-        // TODO: Find existing frame even if not associated with doc
-        if (fropt) { // reuse
-            frame = dynamic_cast<QDockWidget *>(fropt->ptr);
-            assert(frame);
-            _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
-        } else { // new
-            frame = new QDockWidget();
-            mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, static_cast<QDockWidget *>(frame));
-            _dbAddFrame(frame, at, mwr.ID, dwr.ID);
-        }
-        if(docWidget)
-            static_cast<QDockWidget *>(frame)->setWidget(docWidget);
-    }
+    MainWindowsRecord mwr = mainWindowsRecord(mw);
+    QWidget *frame = new QMdiSubWindow();
+    _dbAddFrame(frame, AttachmentType::MDI, mwr.ID, dwr.ID);
+
+    QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
+    static_cast<QMdiSubWindow *>(frame)->setWidget(dwr.ptr);
+    static_cast<QMdiArea *>(mwr.ptr->centralWidget())->addSubWindow(frame);
+    frame->setAttribute(Qt::WA_DeleteOnClose);
     frame->setWindowTitle(QString::fromStdString(userType));
     frame->show();
+}
+
+
+
+void Emdi::ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
+    (void) docName;
+    (void) userType;
+    (void) mainWindow;
+    // New or reuse QDockWidget based on userType, which is critical
+    // docName is not critical -- QDockWidget still shows even if doc not found
+    // userType is critical... I think
+    
+    // // Find frame with this userType and Dock and mainWindowID
+    // auto fropt = _dbFindExistingDockFrame(userType, mwr.ID);
+    // // TODO: Find existing frame even if not associated with doc
+    // if (fropt) { // reuse
+    //     frame = dynamic_cast<QDockWidget *>(fropt->ptr);
+    //     assert(frame);
+    //     _dbUpdateFrameDocWidgetID(fropt->ID, dwr.ID);
+    // } else { // new
+    //     frame = new QDockWidget();
+    //     mainWindow->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, static_cast<QDockWidget *>(frame));
+    //     _dbAddFrame(frame, at, mwr.ID, dwr.ID);
+    // }
+    // if(docWidget)
+    //     static_cast<QDockWidget *>(frame)->setWidget(docWidget);
+
 }
