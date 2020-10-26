@@ -434,7 +434,22 @@ void Emdi::ShowMDIView(const std::string & docName, const std::string & userType
     frame->show();
 }
 
+void Emdi::duplicateMDIView() {
+    // Duplicate currently selected MDI view in the same mainWindow.  Does not
+    // create or duplicate the document.  Requires new docWidget.
+    QMainWindow *mainWindow = mainWindowsRecord().ptr;
+    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
+    QMdiSubWindow *oldframe = mdi->activateWindow();
+    if (!sw) return;
+    auto fr = getRecord<FramesRecord>("ptr", oldframe);
+    auto dwr = getRecord<DocWidgetsRecord>("ID", fr->docWidgetID);
+    auto dr = getRecord<DocRecord>("ID", dwr->docID);
+    QWidget *docWidget = dr->ptr->newView(dwr->userType);
 
+
+    _dbAddDocWidget(docWidget, userType, dropt->ID);
+    _dbAddFrame
+}
 
 void Emdi::ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
     (void) docName;

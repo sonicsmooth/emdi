@@ -165,6 +165,7 @@ public:
     void AddDocument(const Document *);
     void ShowMDIView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
     void ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+    void duplicateMDIView();
 signals:
     void destroy(void *);
 public slots:

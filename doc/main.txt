@@ -19,7 +19,7 @@ This improves the MDI experience by:
 * Does not require subclassing QMainWindow or QMDISubWindow
 
 EMDI is used my main to create new main QMainWindows
-A subwindow will be assigned to one frameType.
+A subwindow will be assigned to one userType.
 Multiple QWidget *views will then become the content of the subwindow,
 depending on which Document is selected
 

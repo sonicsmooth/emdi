@@ -12,7 +12,7 @@ public:
     virtual void init() = 0;
     virtual void done() = 0;
     virtual bool isActive() = 0;
-    virtual QWidget *newView(const std::string & frameType) const = 0;
+    virtual QWidget *newView(const std::string & userType) const = 0;
     virtual const std::string & name() const = 0;
 };
 

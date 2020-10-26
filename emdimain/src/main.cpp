@@ -45,19 +45,27 @@ void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
 QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QWidget *w = new QWidget();
-
     QVBoxLayout *vb = new QVBoxLayout();
     QPushButton *pb = new QPushButton("New Schematic Doc");
     vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){newDoc<SchDocument>("Main Editor", emdi, docVec);});
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        newDoc<SchDocument>("Main Editor", emdi, docVec);});
 
     pb = new QPushButton("New Text Doc");
     vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){newDoc<TxtDocument>("Main Editor", emdi, docVec);});
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        newDoc<TxtDocument>("Main Editor", emdi, docVec);});
+
+    pb = new QPushButton("Duplicate Current MDI");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.
+        });
 
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){emdi.ShowDockView("", "Properties");});
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.ShowDockView("", "Properties");});
 
 
     pb = new QPushButton("Hierarchy Dock");
