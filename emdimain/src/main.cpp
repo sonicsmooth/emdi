@@ -59,7 +59,7 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Duplicate Current MDI");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.
+        emdi.duplicateMDIView();
         });
 
     pb = new QPushButton("Properties Dock");
@@ -92,23 +92,23 @@ int main(int argc, char *argv[]) {
     QWidget *buttWindow = buttonWindow(emdi, docVec);
 
     //std::string file1 = "somefile.txt";
-//    std::string file2 = "anotherfile.sch";
+    //std::string file2 = "anotherfile.sch";
 
     //TxtDocument doc1(file1);
-//    SchDocument doc2(file2);
+    //SchDocument doc2(file2);
 
-//    // TODO: Retrieve document userTypes
+    //// TODO: Retrieve document userTypes
     //emdi.AddDocument(&doc1);
-//    emdi.AddDocument(&doc2);
+    //emdi.AddDocument(&doc2);
 
     //emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
-    //    emdi.ShowView(file2, "Schematic", AttachmentType::MDI);
-    //    emdi.ShowView(file1, "Symbol", AttachmentType::MDI);
-    //    emdi.ShowView(file2, "Symbol", AttachmentType::MDI);
+    //emdi.ShowView(file2, "Schematic", AttachmentType::MDI);
+    //emdi.ShowView(file1, "Symbol", AttachmentType::MDI);
+    //emdi.ShowView(file2, "Symbol", AttachmentType::MDI);
     //emdi.ShowView(file1, "Properties", AttachmentType::Dock);
-//    emdi.ShowView(file2, "Properties", AttachmentType::Dock);
-//    emdi.ShowView(file1, "Explorer", AttachmentType::Dock);
-//    emdi.ShowView(file2, "Explorer", AttachmentType::Dock);
+    //emdi.ShowView(file2, "Properties", AttachmentType::Dock);
+    //emdi.ShowView(file1, "Explorer", AttachmentType::Dock);
+    //emdi.ShowView(file2, "Explorer", AttachmentType::Dock);
 
 
 #if defined(QT_DEBUG)

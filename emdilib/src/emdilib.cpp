@@ -379,9 +379,11 @@ void Emdi::_onMdiClosed(QObject *sw) {
        }
     }
 
-    assert(docsToDelete.size() == 1);
-    docsToDelete[0].ptr->done();
-    emit destroy(docsToDelete[0].ptr);
+    assert(docsToDelete.size() <= 1);
+    if (docsToDelete.size()) {
+        docsToDelete[0].ptr->done();
+        emit destroy(docsToDelete[0].ptr);
+    }
 
 }
 void Emdi::AddMainWindow(QMainWindow *mainWindow) {
@@ -425,7 +427,6 @@ void Emdi::ShowMDIView(const std::string & docName, const std::string & userType
     MainWindowsRecord mwr = mainWindowsRecord(mw);
     QWidget *frame = new QMdiSubWindow();
     _dbAddFrame(frame, AttachmentType::MDI, mwr.ID, dwr.ID);
-
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
     static_cast<QMdiSubWindow *>(frame)->setWidget(dwr.ptr);
     static_cast<QMdiArea *>(mwr.ptr->centralWidget())->addSubWindow(frame);
@@ -437,18 +438,27 @@ void Emdi::ShowMDIView(const std::string & docName, const std::string & userType
 void Emdi::duplicateMDIView() {
     // Duplicate currently selected MDI view in the same mainWindow.  Does not
     // create or duplicate the document.  Requires new docWidget.
-    QMainWindow *mainWindow = mainWindowsRecord().ptr;
-    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
-    QMdiSubWindow *oldframe = mdi->activateWindow();
-    if (!sw) return;
-    auto fr = getRecord<FramesRecord>("ptr", oldframe);
-    auto dwr = getRecord<DocWidgetsRecord>("ID", fr->docWidgetID);
-    auto dr = getRecord<DocRecord>("ID", dwr->docID);
-    QWidget *docWidget = dr->ptr->newView(dwr->userType);
+    MainWindowsRecord mwr = mainWindowsRecord();
+    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mwr.ptr->centralWidget());
+    QMdiSubWindow *currFrame = mdi->activeSubWindow();
+    if(!currFrame) return;
+    auto fropt = getRecord<FramesRecord>("ptr", currFrame);
+    auto dwropt = getRecord<DocWidgetsRecord>("ID", fropt->docWidgetID);
+    auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
+    QWidget *docWidget = dropt->ptr->newView(dwropt->userType);
+    assert(docWidget);
+    _dbAddDocWidget(docWidget, dwropt->userType, dropt->ID);
+    DocWidgetsRecord dwr = *getRecord<DocWidgetsRecord>("ptr", docWidget);
 
+    QWidget *frame = new QMdiSubWindow();
+    _dbAddFrame(frame, AttachmentType::MDI, mwr.ID, dwr.ID);
+    QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
+    static_cast<QMdiSubWindow *>(frame)->setWidget(dwr.ptr);
+    static_cast<QMdiArea *>(mwr.ptr->centralWidget())->addSubWindow(frame);
+    frame->setAttribute(Qt::WA_DeleteOnClose);
+    frame->setWindowTitle(QString::fromStdString(dwropt->userType));
+    frame->show();
 
-    _dbAddDocWidget(docWidget, userType, dropt->ID);
-    _dbAddFrame
 }
 
 void Emdi::ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
