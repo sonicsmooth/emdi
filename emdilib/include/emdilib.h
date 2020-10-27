@@ -40,7 +40,6 @@ struct DocRecord {
 struct DocWidgetsRecord {
     unsigned int ID;
     QWidget *ptr;
-    std::string userType;
     unsigned int docID;
     DocWidgetsRecord();
     DocWidgetsRecord(const QSqlQuery &);
@@ -51,6 +50,7 @@ struct FramesRecord {
     unsigned int ID;
     QWidget *ptr;
     AttachmentType attach;
+    std::string userType;
     unsigned int mainWindowID;
     unsigned int docWidgetID;
     FramesRecord();
@@ -150,12 +150,10 @@ private:
     void _dbaddDocument(const Document *);
     void _dbaddMainWindow(const QMainWindow *);
     std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
-    void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
-    //std::optional<DocWidgetsRecord> _dbFindDocWidgetsRecordByUserTypeDocID(const std::string &, unsigned int);
-    void _dbAddFrame(const QWidget *, AttachmentType, unsigned int, unsigned int);
-    std::optional<FramesRecord> _dbFindExistingDockFrame(const std::string &, unsigned int);
+    void _dbAddDocWidget(const QWidget *, unsigned int);
+    void _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
-    void _newMdiFrame(const DocWidgetsRecord &, const MainWindowsRecord &);
+    void _newMdiFrame(const DocWidgetsRecord &, const std::string & userType, const MainWindowsRecord &);
     void _updateDockFrames(const DocRecord &, const MainWindowsRecord &);
     
 
