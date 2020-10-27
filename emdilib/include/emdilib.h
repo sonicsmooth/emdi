@@ -37,33 +37,33 @@ struct DocRecord {
     DocRecord & operator=(const DocRecord &);
 };
 
-struct DocWidgetsRecord {
+struct DocWidgetRecord {
     unsigned int ID;
     QWidget *ptr;
     unsigned int docID;
-    DocWidgetsRecord();
-    DocWidgetsRecord(const QSqlQuery &);
-    DocWidgetsRecord & operator=(const DocWidgetsRecord &);
+    DocWidgetRecord();
+    DocWidgetRecord(const QSqlQuery &);
+    DocWidgetRecord & operator=(const DocWidgetRecord &);
 };
 
-struct FramesRecord {
+struct FrameRecord {
     unsigned int ID;
     QWidget *ptr;
     AttachmentType attach;
     std::string userType;
     unsigned int mainWindowID;
     unsigned int docWidgetID;
-    FramesRecord();
-    FramesRecord(const QSqlQuery &);
-    FramesRecord & operator=(const FramesRecord &);
+    FrameRecord();
+    FrameRecord(const QSqlQuery &);
+    FrameRecord & operator=(const FrameRecord &);
 };
 
-struct MainWindowsRecord {
+struct MainWindowRecord {
     unsigned int ID;
     QMainWindow *ptr;
-    MainWindowsRecord();
-    MainWindowsRecord(const QSqlQuery &);
-    MainWindowsRecord & operator=(const MainWindowsRecord &);
+    MainWindowRecord();
+    MainWindowRecord(const QSqlQuery &);
+    MainWindowRecord & operator=(const MainWindowRecord &);
 };
 
 [[noreturn ]] void fatalStr(const QString &, int = 0);
@@ -94,11 +94,12 @@ QString selectStr(const QString & table, const QString & field, AttachmentType, 
 
 template<typename T> QString tableName() {return "undefined";}
 template<> inline QString tableName<DocRecord>() {return "docs";}
-template<> inline QString tableName<DocWidgetsRecord>() {return "docWidgets";}
-template<> inline QString tableName<FramesRecord>() {return "frames";}
-template<> inline QString tableName<MainWindowsRecord>() {return "mainWindows";}
+template<> inline QString tableName<DocWidgetRecord>() {return "docWidgets";}
+template<> inline QString tableName<FrameRecord>() {return "frames";}
+template<> inline QString tableName<MainWindowRecord>() {return "mainWindows";}
 
-
+// TODO: Figure out getRecord and getRecords with 
+// TODO: name/value pairs of arbitrary type value
 template<typename RET_T, typename ARG_T>
 std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -121,6 +122,8 @@ std::vector<RET_T> getRecords(const QString & field, ARG_T val) {
         vec.push_back(query);
     return vec;
 }
+
+// TODO: Figure out how to do prepared strings so weird values can be bound
 template<typename RET_T>
 std::optional<RET_T> getRecord(const QString & select) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -147,25 +150,27 @@ class Emdi : public QObject {
     Q_OBJECT
 private:
     void _dbInitDb();
-    void _dbaddDocument(const Document *);
-    void _dbaddMainWindow(const QMainWindow *);
-    std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
+    void _dbAddDocument(const Document *);
+    void _dbAddMainWindow(const QMainWindow *);
+    MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
     void _dbAddDocWidget(const QWidget *, unsigned int);
-    void _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int, unsigned int);
+    void _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
-    void _newMdiFrame(const DocWidgetsRecord &, const std::string & userType, const MainWindowsRecord &);
-    void _updateDockFrames(const DocRecord &, const MainWindowsRecord &);
+    void _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
+    void _updateDockFrames(const DocRecord &, const MainWindowRecord &);
+    std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow *);
+    std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow *);
+    std::optional<DocRecord> _selectedDoc(const QMainWindow *);
     
 
 public:
     Emdi();
     ~Emdi();
     void addMainWindow(QMainWindow *);
-    MainWindowsRecord mainWindowsRecord(QMainWindow * = nullptr);
     void addDocument(const Document *);
     void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
     void duplicateMdiFrame();
-    void showDockFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+    void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
 signals:
     void destroy(void *);
 public slots:

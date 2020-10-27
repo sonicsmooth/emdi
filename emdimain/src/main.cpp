@@ -65,9 +65,12 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.showDockFrame("", "Properties");});
+        emdi.showDockFrame("Properties");});
 
     pb = new QPushButton("Hierarchy Dock");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.showDockFrame("Hierarchy");});
     vb->addWidget(pb);
 
     vb->addStretch();
