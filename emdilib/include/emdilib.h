@@ -147,25 +147,27 @@ class Emdi : public QObject {
     Q_OBJECT
 private:
     void _dbInitDb();
-    void _dbAddDocument(const Document *);
-    void _dbAddMainWindow(const QMainWindow *);
+    void _dbaddDocument(const Document *);
+    void _dbaddMainWindow(const QMainWindow *);
     std::optional<MainWindowsRecord> _dbFindLatestMainWindow() const;
     void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
     //std::optional<DocWidgetsRecord> _dbFindDocWidgetsRecordByUserTypeDocID(const std::string &, unsigned int);
     void _dbAddFrame(const QWidget *, AttachmentType, unsigned int, unsigned int);
     std::optional<FramesRecord> _dbFindExistingDockFrame(const std::string &, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
+    void _newMdiFrame(const DocWidgetsRecord &, const MainWindowsRecord &);
+    void _updateDockFrames(const DocRecord &, const MainWindowsRecord &);
     
 
 public:
     Emdi();
     ~Emdi();
-    void AddMainWindow(QMainWindow *);
+    void addMainWindow(QMainWindow *);
     MainWindowsRecord mainWindowsRecord(QMainWindow * = nullptr);
-    void AddDocument(const Document *);
-    void ShowMDIView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
-    void ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
-    void duplicateMDIView();
+    void addDocument(const Document *);
+    void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+    void duplicateMdiFrame();
+    void showDockFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
 signals:
     void destroy(void *);
 public slots:

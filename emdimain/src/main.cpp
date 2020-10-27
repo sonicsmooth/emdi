@@ -37,8 +37,8 @@ template<typename T>
 void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     std::string docname = docName<T>();
     auto p = std::make_unique<T>(docname);
-    emdi.AddDocument(p.get());
-    emdi.ShowMDIView(docname, userType);
+    emdi.addDocument(p.get());
+    emdi.newMdiFrame(docname, userType);
     docVec.push_back(std::move(p));
 }
 
@@ -59,14 +59,13 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Duplicate Current MDI");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.duplicateMDIView();
+        emdi.duplicateMdiFrame();
         });
 
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.ShowDockView("", "Properties");});
-
+        emdi.showDockFrame("", "Properties");});
 
     pb = new QPushButton("Hierarchy Dock");
     vb->addWidget(pb);
@@ -83,7 +82,7 @@ int main(int argc, char *argv[]) {
     w.setCentralWidget(nullptr);
 
     Emdi emdi;
-    emdi.AddMainWindow(&w);
+    emdi.addMainWindow(&w);
     docVec_t docVec;
 
     QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
@@ -98,8 +97,8 @@ int main(int argc, char *argv[]) {
     //SchDocument doc2(file2);
 
     //// TODO: Retrieve document userTypes
-    //emdi.AddDocument(&doc1);
-    //emdi.AddDocument(&doc2);
+    //emdi.addDocument(&doc1);
+    //emdi.addDocument(&doc2);
 
     //emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
     //emdi.ShowView(file2, "Schematic", AttachmentType::MDI);

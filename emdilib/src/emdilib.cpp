@@ -1,5 +1,6 @@
 #include "emdilib.h"
 
+#include <QApplication>
 #include <QDebug>
 #include <QDockWidget>
 #include <QMainWindow>
@@ -203,7 +204,7 @@ void Emdi::_dbInitDb() {
                        "DROP TABLE IF EXISTS mainWindows;                                               ",
                        "CREATE TABLE docs (ID   INTEGER PRIMARY KEY AUTOINCREMENT,                    \n"
                        "                   ptr  INTEGER UNIQUE,                                       \n"
-                       "                   name TEXT);                                                  ",
+                       "                   name TEXT CHECK(length(name) > 0));                          ",
 
                        "CREATE TABLE docWidgets  (ID       INTEGER PRIMARY KEY AUTOINCREMENT,         \n"
                        "                          ptr      INTEGER UNIQUE,                            \n"
@@ -241,7 +242,7 @@ void Emdi::_dbInitDb() {
             fatalStr(querr("Could not init", query), __LINE__);
 }
 
-void Emdi::_dbAddDocument(const Document *ptr) {
+void Emdi::_dbaddDocument(const Document *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
     query.bindValue(":ptr", uint64_t(ptr));
@@ -249,7 +250,7 @@ void Emdi::_dbAddDocument(const Document *ptr) {
     if (!query.exec())
         fatalStr(querr("Could not execute add Document", query), __LINE__);
 }
-void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
+void Emdi::_dbaddMainWindow(const QMainWindow *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString::asprintf("INSERT INTO mainWindows (ptr) VALUES (%llu);", uint64_t(ptr));
     if (!query.exec(s))
@@ -323,17 +324,19 @@ void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
         "       WHERE  frames.ptr = %2) AS selectedDoc         \n"
         "ON     docWidgets.docID = selectedDoc.docID;          \n").
         arg(mwid).arg(uint64_t(sw));
-   if (!query.exec(s))
-       fatalStr(querr("Could not run _onMdiActivated", query), __LINE__);
-   while (query.next()) {
-       auto userType = qVal<QString>(query, "userType");
-       auto *docWidget = qVal<QWidget *>(query, "docWidgetPtr");
-       auto *wframe = qVal<QWidget *>(query, "framePtr");
-       auto *frame = dynamic_cast<QDockWidget *>(wframe);
-       if (!frame)
-           throw(std::logic_error("Could not retrieve pointer"));
-       frame->setWidget(docWidget);
-       frame->setWindowTitle(userType);
+    if (!query.exec(s))
+        fatalStr(querr("Could not run _onMdiActivated", query), __LINE__);
+    int i = 0;
+    while (query.next()) {
+        qDebug() << i++;
+        auto userType = qVal<QString>(query, "userType");
+        auto *docWidget = qVal<QWidget *>(query, "docWidgetPtr");
+        auto *wframe = qVal<QWidget *>(query, "framePtr");
+        auto *frame = dynamic_cast<QDockWidget *>(wframe);
+        if (!frame)
+            throw(std::logic_error("Could not retrieve pointer"));
+        frame->setWidget(docWidget);
+        frame->setWindowTitle(userType);
     }
 }
 void Emdi::_onMdiClosed(QObject *sw) {
@@ -386,9 +389,9 @@ void Emdi::_onMdiClosed(QObject *sw) {
     }
 
 }
-void Emdi::AddMainWindow(QMainWindow *mainWindow) {
+void Emdi::addMainWindow(QMainWindow *mainWindow) {
     // Make sure mainwindow has MDI area
-    _dbAddMainWindow(mainWindow);
+    _dbaddMainWindow(mainWindow);
     QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
     if (mdi)
         return;
@@ -397,48 +400,65 @@ void Emdi::AddMainWindow(QMainWindow *mainWindow) {
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
 }
 MainWindowsRecord Emdi::mainWindowsRecord(QMainWindow *mainWindow) {
-    auto mwr = mainWindow ? getRecord<MainWindowsRecord>("ptr", mainWindow) :
-                            _dbFindLatestMainWindow();
-    if (mwr)
-        return *mwr;
-    else
-        throw(std::logic_error("Can't find main window"));
-}
-void Emdi::AddDocument(const Document *doc) {
-    _dbAddDocument(doc);
-}
-void Emdi::ShowMDIView(const std::string & docName, const std::string & userType, QMainWindow *mw) {
-    // Always new MDI view and new DocWidget attaching to doc given by docName.
-    // docName is critical -- error if not found or empty
-    // userType is not critical -- just used in title
-    assert(docName.size());
-    auto dropt = getRecord<DocRecord>("name", docName);
-    assert(dropt);
-    Document *doc = dropt->ptr;
-    if (!doc->isActive())
-        doc->init(); // generic version of "open"
-    QWidget *docWidget = doc->newView(userType);
-    DocWidgetsRecord dwr;
-    if (docWidget) { // nullptr if doc doesn't support userType
-        _dbAddDocWidget(docWidget, userType, dropt->ID);
-        dwr = *getRecord<DocWidgetsRecord>("ptr", docWidget);
+    // Return record of given ptr or error.
+    // If ptr is null, return QApplication::activeWindow, after verifying it's in the db
+    if (!mainWindow) {
+        auto mwropt = _dbFindLatestMainWindow();
+        assert(mwropt);
+        return *mwropt;
+    } else {
+        auto mwropt = getRecord<MainWindowsRecord>("ptr", mainWindow);
+        assert(mwropt);
+        return *mwropt;
     }
+}
+void Emdi::addDocument(const Document *doc) {
+    // Don't allow nameless docs to be added
+    assert(doc->name().size());
+    _dbaddDocument(doc);
+}
 
-    MainWindowsRecord mwr = mainWindowsRecord(mw);
+void Emdi::_newMdiFrame(const DocWidgetsRecord &dwr, const MainWindowsRecord & mwr) {
+    // Create new MDI View as subroutine of newMdiFrame and duplicateMdiFrame
     QWidget *frame = new QMdiSubWindow();
     _dbAddFrame(frame, AttachmentType::MDI, mwr.ID, dwr.ID);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
     static_cast<QMdiSubWindow *>(frame)->setWidget(dwr.ptr);
     static_cast<QMdiArea *>(mwr.ptr->centralWidget())->addSubWindow(frame);
     frame->setAttribute(Qt::WA_DeleteOnClose);
-    frame->setWindowTitle(QString::fromStdString(userType));
+    frame->setWindowTitle(QString::fromStdString(dwr.userType));
     frame->show();
 }
 
-void Emdi::duplicateMDIView() {
+void Emdi::newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mw) {
+    // Always new MDI view and new DocWidget attaching to doc given by docName.
+    // docName is critical -- error if not found or empty
+    // userType is not critical -- just used in title
+    // Uses the first docName found, so docName should be unique in database
+    assert(docName.size());
+    auto dropt = getRecord<DocRecord>("name", docName);
+    assert(dropt);
+    Document *doc = dropt->ptr;
+    bool oldActive = doc->isActive(); // remember for a few lines
+    if (!oldActive)
+        doc->init(); // generic version of "open"
+    QWidget *docWidget = doc->newView(userType);
+    if (!docWidget) {
+        if (!oldActive && doc->isActive())
+            doc->done();
+        return; // nullptr if doc doesn't support userType
+    }
+    _dbAddDocWidget(docWidget, userType, dropt->ID);
+    DocWidgetsRecord dwr = *getRecord<DocWidgetsRecord>("ptr", docWidget);
+    auto mwr = mainWindowsRecord();
+    _newMdiFrame(dwr, mwr);
+    //_updateDockFrames(*dropt, mwr);
+}
+
+void Emdi::duplicateMdiFrame() {
     // Duplicate currently selected MDI view in the same mainWindow.  Does not
     // create or duplicate the document.  Requires new docWidget.
-    MainWindowsRecord mwr = mainWindowsRecord();
+    auto mwr = mainWindowsRecord();
     QMdiArea *mdi = dynamic_cast<QMdiArea *>(mwr.ptr->centralWidget());
     QMdiSubWindow *currFrame = mdi->activeSubWindow();
     if(!currFrame) return;
@@ -449,19 +469,27 @@ void Emdi::duplicateMDIView() {
     assert(docWidget);
     _dbAddDocWidget(docWidget, dwropt->userType, dropt->ID);
     DocWidgetsRecord dwr = *getRecord<DocWidgetsRecord>("ptr", docWidget);
-
-    QWidget *frame = new QMdiSubWindow();
-    _dbAddFrame(frame, AttachmentType::MDI, mwr.ID, dwr.ID);
-    QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-    static_cast<QMdiSubWindow *>(frame)->setWidget(dwr.ptr);
-    static_cast<QMdiArea *>(mwr.ptr->centralWidget())->addSubWindow(frame);
-    frame->setAttribute(Qt::WA_DeleteOnClose);
-    frame->setWindowTitle(QString::fromStdString(dwropt->userType));
-    frame->show();
-
+    _newMdiFrame(dwr, mwr);
+    //_updateDockFrames(*dropt, mwr);
 }
 
-void Emdi::ShowDockView(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
+/*
+A. MDI frames showing -> showDockFrame -> create new docWidget for Dock ->
+attach B. MDI and Dock Frames showing -> New doc + MDI -> new docWidget for Dock
+-> attach C. No docs or MDI frames -> showDockFrame -> New doc + MDI ->
+newdocWidget for Dock -> attach
+
+_updateDockFrames(docRecord dr, QMainWindow *mw) -> 
+    for each df : getRecords<framesrecord>(attach=="Dock", mainWindowID=mwr.ID) in mw:
+        Look for a docWidget 
+userType==each existing DockFrame.userType
+
+_showDockFrame
+
+*/
+
+
+void Emdi::showDockFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
     (void) docName;
     (void) userType;
     (void) mainWindow;
