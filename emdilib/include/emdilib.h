@@ -85,6 +85,7 @@ T qVal(const QSqlQuery & query, const QString & field) {
 
 QString limitstr(int);
 QString selectStr(const QString & table, const QString & field, unsigned int, int = -1);
+QString selectStr(const QString & table, const QString & field, uint64_t, int = -1);
 QString selectStr(const QString & table, const QString & field, const std::string &, int = -1);
 QString selectStr(const QString & table, const QString & field, const QMainWindow *, int = -1);
 QString selectStr(const QString & table, const QString & field, const QWidget *, int = -1);
@@ -153,7 +154,7 @@ private:
     void _dbAddDocument(const Document *);
     void _dbAddMainWindow(const QMainWindow *);
     MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
-    void _dbAddDocWidget(const QWidget *, unsigned int);
+    void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
     void _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
     void _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
