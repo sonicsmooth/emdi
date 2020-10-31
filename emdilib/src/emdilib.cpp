@@ -319,35 +319,47 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     frame->setWindowTitle(QString::fromStdString(userType));
     frame->show();
 }
-void Emdi::_updateDockFrames(const DocRecord & dr, const MainWindowRecord & mwr) {
+void Emdi::_updateDockFrames(const std::optional<DocRecord> & dropt, const MainWindowRecord & mwr) {
     // Return immediately if no DocRecord
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
     // It's ok if there are no Dock frames
     // It's ok if there are no docWidgets that match conditions
+
     auto frs = getRecords<FrameRecord>(
                     QString("SELECT  *                   \n"
                             "FROM    frames              \n"
                             "WHERE   attach = 'Dock' AND \n"
                             "        mainWindowID = %1;").arg(mwr.ID));
     for (FrameRecord fr : frs) {
-        QString s = QString("SELECT  *                   \n"
-                            "FROM    docWidgets          \n"
-                            "WHERE   userType = '%1' AND \n"
-                            "        docID    = %2;").
-                            arg(fr.userType.c_str()).
-                            arg(dr.ID);
-        auto dwropt = getRecord<DocWidgetRecord>(s);
-        if (dwropt) { // attech if already exists
-            _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
-            static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-        } else { // attempt to create new docWidget
-            QWidget *docWidget = dr.ptr->newView(fr.userType);
-            if(docWidget) {
-                _dbAddDocWidget(docWidget, fr.userType, dr.ID);
-                auto dwropt = getRecord<DocWidgetRecord>(s);
+        if (!dropt) {
+            // Empty Dock frame if no doc is available
+            static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+        }
+        else {
+            // Assign dock frame
+            QString s = QString("SELECT  *                   \n"
+                                "FROM    docWidgets          \n"
+                                "WHERE   userType = '%1' AND \n"
+                                "        docID    = %2;").
+                                arg(fr.userType.c_str()).
+                                arg(dropt->ID);
+            auto dwropt = getRecord<DocWidgetRecord>(s);
+            if (dwropt) { // attech if already exists
                 _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
                 static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
+            } else { // attempt to create new docWidget
+                QWidget *docWidget = dropt->ptr->newView(fr.userType);
+                if(docWidget) {
+                    // Attach new view if available
+                    _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
+                    auto dwropt = getRecord<DocWidgetRecord>(s);
+                    _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
+                    static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
+                } else {
+                    // Clear dock frame when unavailable
+                    static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+                }
             }
         }
     }
@@ -460,7 +472,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
     }
      auto dropt = _selectedDoc(mainWindow);
      if (dropt)
-        _updateDockFrames(*dropt, _dbMainWindow(mainWindow));
+        _updateDockFrames(dropt, _dbMainWindow(mainWindow));
 
 
     }
@@ -469,15 +481,16 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
 // Public Slots
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
     if (!sw) {
-        return;
+        _updateDockFrames(std::optional<DocRecord>(std::nullopt), _dbMainWindow());
+    } else {
+        auto fropt = getRecord<FrameRecord>("ptr", uint64_t(sw));
+        assert(fropt);
+        auto dwropt = getRecord<DocWidgetRecord>("ID", fropt->docWidgetID);
+        assert(fropt);
+        auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
+        assert(dropt);
+        _updateDockFrames(dropt, _dbMainWindow());
     }
-    auto fropt = getRecord<FrameRecord>("ptr", uint64_t(sw));
-    assert(fropt);
-    auto dwropt = getRecord<DocWidgetRecord>("ID", fropt->docWidgetID);
-    assert(fropt);
-    auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
-    assert(dropt);
-    _updateDockFrames(*dropt, _dbMainWindow());
 }
 void Emdi::_onMdiClosed(QObject *sw) {
     // Do this in one BEGIN...COMMIT transaction

@@ -6,9 +6,10 @@
 #include <string>
 
 
+
 class Document {
 public:
-    virtual ~Document() {/*qDebug("Document::~Document()");*/}
+    virtual ~Document() {}
     virtual void init() = 0;
     virtual void done() = 0;
     virtual bool isActive() = 0;

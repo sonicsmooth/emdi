@@ -30,10 +30,15 @@ bool TxtDocument::isActive() {
 }
 
 QWidget *TxtDocument::newView(const std::string & userType) const {
-    qDebug() << QString("TxtDocument::newView(%1) (%2)").
-                arg(userType.c_str()).arg(m_name.c_str());
-    return new QTextEdit(QString("TxtDocument/%1/%2").
-                         arg(m_name.c_str()).arg(userType.c_str()));
+    if (userType == "Hierarchy") {
+        qDebug() << QString("Txt Document does not support Hierarchy view");
+        return nullptr;
+    } else {
+        qDebug() << QString("TxtDocument::newView(%1) (%2)").
+                    arg(userType.c_str()).arg(m_name.c_str());
+        return new QTextEdit(QString("TxtDocument/%1/%2").
+                            arg(m_name.c_str()).arg(userType.c_str()));
+    }
 }
 const std::string & TxtDocument::name() const {
     return m_name;

@@ -18,7 +18,27 @@
 #include <optional>
 #include <string>
 #include <sstream>
-//#include <vector>
+
+// Document class -- init, close, isActive, newView
+// Design Doc -- Must have >=1 MDI, closes with last MDI, can show in Dock
+// Project Doc -- Can show in MDI or Dock, does not close with MDI
+// Setting -- Can show in MDI or Dock, closes with last frame
+// Wizard -- shows in exactly one MDI or Dock, closes with frame
+
+// Behavior can be controlled by Document having some property class
+// DocBehavior::MDI = [PROHIBITTED, OPTIONAL, REQUIRED, EXCLUSIVE]
+// DocBehavior::DOCK = [PROHIBITTED, OPTIONAL, REQUIRED, EXCLUSIVE]
+// DocBehavior::CLOSING = [NONE, LAST_MDI, LAST_DOCK, BOTH] -- should there be EITHER too?
+
+// Design doc would be REQUIRED, OPTIONAL, LAST_MDI
+// Project doc would be OPTIONAL, OPTIONAL, NONE.  A new project doc without MDI or Dock would be fine
+// Setting would be OPTIONAL, OPTIONAL, BOTH.  A new setting without MDI or Dock would close immediately
+// Wizard would be EXCLUSIVE, EXCLUSIVE, BOTH
+
+// So then instantiations of VDocument would probably have these properties
+// built into the type, rather than having these properties added to them
+// dynamically.
+
 
 using docVec_t = std::list<std::unique_ptr<Document> >;
 
