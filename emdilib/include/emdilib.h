@@ -12,6 +12,12 @@
 
 #include <optional>
 
+
+
+
+
+
+
 enum class AttachmentType {ERROR, MDI, Dock};
 template<typename T>
 T attach2str(AttachmentType at) {
@@ -85,7 +91,7 @@ T qVal(const QSqlQuery & query, const QString & field) {
 
 QString limitstr(int);
 QString selectStr(const QString & table, const QString & field, unsigned int, int = -1);
-QString selectStr(const QString & table, const QString & field, uint64_t, int = -1);
+//QString selectStr(const QString & table, const QString & field, uint64_t, int = -1);
 QString selectStr(const QString & table, const QString & field, const std::string &, int = -1);
 QString selectStr(const QString & table, const QString & field, const QMainWindow *, int = -1);
 QString selectStr(const QString & table, const QString & field, const QWidget *, int = -1);
@@ -146,12 +152,12 @@ std::vector<RET_T> getRecords(const QString & select) {
 }
 
 
-
 class Emdi : public QObject {
     Q_OBJECT
 private:
     void _dbInitDb();
     void _dbAddDocument(const Document *);
+    void _dbCloseDocument(const DocRecord &);
     void _dbAddMainWindow(const QMainWindow *);
     MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
     void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
@@ -159,9 +165,9 @@ private:
     void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
     void _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
     void _updateDockFrames(const std::optional<DocRecord> &, const MainWindowRecord &);
-    std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow *);
-    std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow *);
-    std::optional<DocRecord> _selectedDoc(const QMainWindow *);
+    std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
+    std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
+    std::optional<DocRecord> _selectedDoc(const QMainWindow * = nullptr);
     
 
 public:
@@ -169,17 +175,30 @@ public:
     ~Emdi();
     void addMainWindow(QMainWindow *);
     void addDocument(const Document *);
+    // removeDocument
+    // openDocument
+    void closeDocument(const std::string & = "");
     void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
+
 signals:
     void destroy(void *);
 public slots:
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);
+    void _onDockClosed(QObject *);
 
 };
 
+class FilterObject : public QObject {
+private:
+    Emdi *m_emdi;
+public:
+    FilterObject(QObject *parent, Emdi *emdi) : QObject(parent), m_emdi(emdi){}
+    ~FilterObject() override {qDebug("~FilterObject()");}
+    bool eventFilter(QObject *watched, QEvent *event) override;
+};
 
 
 

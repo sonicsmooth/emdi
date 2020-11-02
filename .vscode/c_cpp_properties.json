@@ -4,8 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${default}",
-                "emdimain/include",
-                "emdilib/include",
+                "./emdimain/include",
+                "./emdilib/include",
                 "C:/Qt/5.12.6/msvc2017_64/include/**"
             ],
             "defines": [

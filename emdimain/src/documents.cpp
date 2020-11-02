@@ -3,9 +3,10 @@
 #include <QTextEdit>
 #include <QDebug>
 
-TxtDocument::TxtDocument(const std::string & name) :
+TxtDocument::TxtDocument(const std::string & name, const DocBehavior & behavior) :
     m_name(name),
-    m_activeState(false)
+    m_activeState(false),
+    m_behavior(behavior)
 {
     qDebug() << QString("TxtDocument::TxtDocument(%1)").arg(name.c_str());
 }
@@ -44,11 +45,19 @@ const std::string & TxtDocument::name() const {
     return m_name;
 }
 
+void TxtDocument::setBehavior(const DocBehavior & behavior) {
+    m_behavior = behavior;
+}
+const DocBehavior & TxtDocument::behavior() const {
+    return m_behavior;
+}
 
 
-SchDocument::SchDocument(const std::string & name) :
+
+SchDocument::SchDocument(const std::string & name, const DocBehavior & behavior) :
     m_name(name),
-    m_activeState(false)
+    m_activeState(false),
+    m_behavior(behavior)
 {
     qDebug() << QString("SchDocument::SchDocument(%1)").arg(name.c_str());
 }
@@ -81,4 +90,10 @@ QWidget *SchDocument::newView(const std::string & userType) const {
 }
 const std::string & SchDocument::name() const {
     return m_name;
+}
+void SchDocument::setBehavior(const DocBehavior & behavior) {
+    m_behavior = behavior;
+}
+const DocBehavior & SchDocument::behavior() const {
+    return m_behavior;
 }
