@@ -370,25 +370,25 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
 //    auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
 //    assert(dropt);
 
-
-
     auto mwr = _dbMainWindow(mw);
+    QString dockFrameStr = QString("SELECT  *                   \n"
+                                   "FROM    frames              \n"
+                                   "WHERE   attach = 'Dock' AND \n"
+                                   "        mainWindowID = %1;").arg(mwr.ID);
+
     auto dropt = _selectedDoc();
-    auto frs = getRecords<FrameRecord>(
-                    QString("SELECT  *                   \n"
-                            "FROM    frames              \n"
-                            "WHERE   attach = 'Dock' AND \n"
-                            "        mainWindowID = %1;").arg(mwr.ID));
+    QString docWidgetStr = QString("SELECT  *                   \n"
+                                   "FROM    docWidgets          \n"
+                                   "WHERE   userType = '%2' AND \n"
+                                   "        docID    = %1;").
+                                   arg(dropt->ID);
+
+    auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
         // this works for selected doc, but not yet for project
-        // Assign dock frame
-        QString s = QString("SELECT  *                   \n"
-                            "FROM    docWidgets          \n"
-                            "WHERE   userType = '%1' AND \n"
-                            "        docID    = %2;").
-                            arg(fr.userType.c_str()).
-                            arg(dropt->ID);
-        auto dwropt = getRecord<DocWidgetRecord>(s);
+        // Find or create docWidget for this frame, for selected MDI doc
+        QString dws = docWidgetStr.arg(fr.userType.c_str());
+        auto dwropt = getRecord<DocWidgetRecord>(dws);
         if (dwropt) { // attach if already exists
             _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
             static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
@@ -397,7 +397,7 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
             if(docWidget) {
                 // Attach new view if available
                 _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
-                dwropt = getRecord<DocWidgetRecord>(s);
+                dwropt = getRecord<DocWidgetRecord>(dws);
                 _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
                 static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
             } else {
@@ -408,22 +408,21 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
     }
 }
 void Emdi::_clearDockFrames() {
-    // Remove all docWidgets from all DockFrames
+    // Remove all docWidgets from all dock frames
     auto mwr = _dbMainWindow();
-    auto frs = getRecords<FrameRecord>(
-                    QString("SELECT  *                   \n"
-                            "FROM    frames              \n"
-                            "WHERE   attach = 'Dock' AND \n"
-                            "        mainWindowID = %1;").arg(mwr.ID));
     // Nullifies docWidgetID from all dock frames in this mainWindow
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString("UPDATE frames               \n"
-                        "SET    docWidgetID = NULL   \n"
-                        "WHERE  attach ='Dock' AND   \n"
-                        "       mainWindowID = %1;").arg(mwr.ID);
-    if (!query.exec(s))
+    if (!query.exec(QString("UPDATE frames               \n"
+                            "SET    docWidgetID = NULL   \n"
+                            "WHERE  attach ='Dock' AND   \n"
+                            "       mainWindowID = %1;").arg(mwr.ID)))
         fatalStr(querr("Could not update frames table", query), __LINE__);
-    for (FrameRecord fr : frs) {
+
+    for (FrameRecord fr : getRecords<FrameRecord>(
+             QString("SELECT  *                   \n"
+                     "FROM    frames              \n"
+                     "WHERE   attach = 'Dock' AND \n"
+                     "        mainWindowID = %1;").arg(mwr.ID))) {
         static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
     }
 }
