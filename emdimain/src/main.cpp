@@ -35,6 +35,14 @@ template<typename T> std::string docName() {
     return ss.str();
 }    
 
+void newProject(const std::string &, Emdi &, docVec_t &);
+void newProject(const std::string & prjName, Emdi & emdi, docVec_t & docVec) {
+    auto p = std::make_unique<PrjDocument>(prjName);
+    emdi.addDocument(p.get());
+    emdi.showDockFrame("Project Tree");
+    docVec.push_back(std::move(p));
+}
+
 template<typename T>
 void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     std::string docname = docName<T>();
@@ -48,7 +56,19 @@ QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QWidget *w = new QWidget();
     QVBoxLayout *vb = new QVBoxLayout();
-    QPushButton *pb = new QPushButton("New Schematic Doc");
+    QPushButton *pb;
+
+    pb = new QPushButton("New Project Doc");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        newProject("MainProject", emdi, docVec);});
+
+    pb = new QPushButton("Close Project Doc");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.closeDocument("MainProject");});
+
+    pb = new QPushButton("New Schematic Doc");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
         newDoc<SchDocument>("Main Editor", emdi, docVec);});
@@ -66,8 +86,7 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Duplicate Current MDI");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.duplicateMdiFrame();
-        });
+        emdi.duplicateMdiFrame();});
 
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
@@ -78,7 +97,6 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.showDockFrame("Hierarchy");});
-    vb->addWidget(pb);
 
     vb->addStretch();
     w->setLayout(vb);
@@ -99,25 +117,6 @@ int main(int argc, char *argv[]) {
         docVec.remove_if([&](const std::unique_ptr<Document> & up) {
             return up.get() == static_cast<Document *>(p);});});
     QWidget *buttWindow = buttonWindow(emdi, docVec);
-
-    //std::string file1 = "somefile.txt";
-    //std::string file2 = "anotherfile.sch";
-
-    //TxtDocument doc1(file1);
-    //SchDocument doc2(file2);
-
-    //// TODO: Retrieve document userTypes
-    //emdi.addDocument(&doc1);
-    //emdi.addDocument(&doc2);
-
-    //emdi.ShowView(file1, "Schematic", AttachmentType::MDI);
-    //emdi.ShowView(file2, "Schematic", AttachmentType::MDI);
-    //emdi.ShowView(file1, "Symbol", AttachmentType::MDI);
-    //emdi.ShowView(file2, "Symbol", AttachmentType::MDI);
-    //emdi.ShowView(file1, "Properties", AttachmentType::Dock);
-    //emdi.ShowView(file2, "Properties", AttachmentType::Dock);
-    //emdi.ShowView(file1, "Explorer", AttachmentType::Dock);
-    //emdi.ShowView(file2, "Explorer", AttachmentType::Dock);
 
 
 #if defined(QT_DEBUG)

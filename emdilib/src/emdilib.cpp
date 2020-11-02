@@ -276,41 +276,19 @@ void Emdi::_dbAddDocument(const Document *ptr) {
 void Emdi::_dbCloseDocument(const DocRecord & dr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     //dr.ptr->done();
-    // Close everything closing all the MDI frames relating to this doc
+    // Close everything by closing all the MDI frames relating to this doc
     // This won't work if MDI is an optional thing for a doc
-
     QString s = QString("SELECT   *                                  \n"
                         "FROM     frames                             \n"
                         "JOIN     docWidgets                         \n"
                         "ON       frames.docWidgetID = docWidgets.ID \n"
-                        "WHERE    docWidgets.docID = %1;               ").
+                        "WHERE    docWidgets.docID = %1 AND          \n"
+                        "         frames.attach = 'MDI';             ").
                         arg(dr.ID);
     auto frs = getRecords<FrameRecord>(s);
     for (const FrameRecord & fr : frs) {
         fr.ptr->close();
     }
-
-//    QStringList qsl = {QString("BEGIN TRANSACTION;                        "),
-//                       QString("DELETE FROM frames                      \n"
-//                               "WHERE ID in                             \n"
-//                               " (SELECT frames.ID                      \n"
-//                               "  FROM   frames                         \n"
-//                               "  JOIN   docWidgets                     \n"
-//                               "  ON frames.docWidgetID = docWidgets.ID \n"
-//                               "  WHERE docWidgets.docID = %1);           ")
-//                               .arg(dr.ID),
-//                       QString("DELETE FROM docWidgets                  \n"
-//                               "WHERE docID = %1;                         ").
-//                               arg(dr.ID),
-//                       QString("DELETE FROM docs                        \n"
-//                               "WHERE ID = %1;                            ").
-//                               arg(dr.ID),
-//                       QString("COMMIT;                                   ")
-//                  };
-//    for (QString qs: qsl)
-//        if (!query.exec(qs))
-//            fatalStr(querr("Could not init", query), __LINE__);
-
 }
 void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -379,60 +357,77 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     frame->show();
 
 }
-void Emdi::_updateDockFrames(const std::optional<DocRecord> & dropt, const MainWindowRecord & mwr) {
-    // Clear dockFrames if no DocRecord
+void Emdi::_updateDockFrames(const QMainWindow *mw) {
+    // Find the current MDI to get the current doc
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
-    // It's ok if there are no Dock frames
-    // It's ok if there are no docWidgets that match conditions
+
+//    auto fropt = getRecord<FrameRecord>("ptr", sw);
+//    assert(fropt);
+//    assert(fropt->ptr == _selectedMdiFrame()->ptr);
+//    auto dwropt = getRecord<DocWidgetRecord>("ID", fropt->docWidgetID);
+//    assert(fropt);
+//    auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
+//    assert(dropt);
 
 
+
+    auto mwr = _dbMainWindow(mw);
+    auto dropt = _selectedDoc();
     auto frs = getRecords<FrameRecord>(
                     QString("SELECT  *                   \n"
                             "FROM    frames              \n"
                             "WHERE   attach = 'Dock' AND \n"
                             "        mainWindowID = %1;").arg(mwr.ID));
-    if (!dropt) { // all docks to be cleared
-        // Nullifies docWidgetID from all dock frames in this mainWindow
-        QSqlQuery query(QSqlDatabase::database("connviews"));
-        QString s = QString("UPDATE frames               \n"
-                            "SET    docWidgetID = NULL   \n"
-                            "WHERE  attach ='Dock' AND   \n"
-                            "       mainWindowID = %1;").arg(mwr.ID);
-        if (!query.exec(s))
-            fatalStr(querr("Could not update frames table", query), __LINE__);
-        for (FrameRecord fr : frs) {
-            static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
-        }
-    } else { // a docRecord is requested to be shown
-        for (FrameRecord fr : frs) {
-            // Assign dock frame
-            QString s = QString("SELECT  *                   \n"
-                                "FROM    docWidgets          \n"
-                                "WHERE   userType = '%1' AND \n"
-                                "        docID    = %2;").
-                                arg(fr.userType.c_str()).
-                                arg(dropt->ID);
-            auto dwropt = getRecord<DocWidgetRecord>(s);
-            if (dwropt) { // attach if already exists
+    for (FrameRecord fr : frs) {
+        // this works for selected doc, but not yet for project
+        // Assign dock frame
+        QString s = QString("SELECT  *                   \n"
+                            "FROM    docWidgets          \n"
+                            "WHERE   userType = '%1' AND \n"
+                            "        docID    = %2;").
+                            arg(fr.userType.c_str()).
+                            arg(dropt->ID);
+        auto dwropt = getRecord<DocWidgetRecord>(s);
+        if (dwropt) { // attach if already exists
+            _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
+            static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
+        } else { // attempt to create new docWidget
+            QWidget *docWidget = dropt->ptr->newView(fr.userType);
+            if(docWidget) {
+                // Attach new view if available
+                _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
+                dwropt = getRecord<DocWidgetRecord>(s);
                 _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
                 static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-            } else { // attempt to create new docWidget
-                QWidget *docWidget = dropt->ptr->newView(fr.userType);
-                if(docWidget) {
-                    // Attach new view if available
-                    _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
-                    dwropt = getRecord<DocWidgetRecord>(s);
-                    _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
-                    static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-                } else {
-                    // Clear dock frame when unavailable
-                    static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
-                }
+            } else {
+                // Clear dock frame when unavailable
+                static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
             }
         }
     }
 }
+void Emdi::_clearDockFrames() {
+    // Remove all docWidgets from all DockFrames
+    auto mwr = _dbMainWindow();
+    auto frs = getRecords<FrameRecord>(
+                    QString("SELECT  *                   \n"
+                            "FROM    frames              \n"
+                            "WHERE   attach = 'Dock' AND \n"
+                            "        mainWindowID = %1;").arg(mwr.ID));
+    // Nullifies docWidgetID from all dock frames in this mainWindow
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("UPDATE frames               \n"
+                        "SET    docWidgetID = NULL   \n"
+                        "WHERE  attach ='Dock' AND   \n"
+                        "       mainWindowID = %1;").arg(mwr.ID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not update frames table", query), __LINE__);
+    for (FrameRecord fr : frs) {
+        static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+    }
+}
+
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
     auto mwr = _dbMainWindow(mainWindow);
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
@@ -536,7 +531,6 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
                         "AND    mainWindowID = %2;").
                         arg(qsUserType).
                         arg(mwr.ID);
-
     auto fropt = getRecord<FrameRecord>(s);
 
     if (fropt) {
@@ -551,9 +545,10 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         frame->setWindowTitle(qsUserType);
         frame->show();
     }
-     auto dropt = _selectedDoc(mainWindow);
-     if (dropt)
-        _updateDockFrames(dropt, _dbMainWindow(mainWindow));
+
+//    auto dropt = _selectedDoc(mainWindow);
+//    if (dropt)
+    _updateDockFrames(mainWindow);
     }
 
 // Public Slots
@@ -566,15 +561,9 @@ void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
         // So evidently Qt thinks the MDI is not selected.  Attempts to distinguish
         // the erronous call from a legitimate call such as when the last MDI is
         // actually closed have been unsuccessful.
-        _updateDockFrames(std::optional<DocRecord>(std::nullopt), _dbMainWindow());
+        _clearDockFrames();
     } else {
-        auto fropt = getRecord<FrameRecord>("ptr", sw);
-        assert(fropt);
-        auto dwropt = getRecord<DocWidgetRecord>("ID", fropt->docWidgetID);
-        assert(fropt);
-        auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
-        assert(dropt);
-        _updateDockFrames(dropt, _dbMainWindow());
+        _updateDockFrames();
     }
 }
 void Emdi::_onMdiClosed(QObject *sw) {
@@ -661,13 +650,4 @@ void Emdi::_onDockClosed(QObject *sw) {
     if (!query.exec(s)) {
         fatalStr(querr("Could not delete frame", query), __LINE__);
     }
-
-
-
-
-
-
-
-
-
 }

@@ -3,10 +3,12 @@
 #include <QTextEdit>
 #include <QDebug>
 
-TxtDocument::TxtDocument(const std::string & name, const DocBehavior & behavior) :
+TxtDocument::TxtDocument(const std::string & name) :
     m_name(name),
     m_activeState(false),
-    m_behavior(behavior)
+    m_mdiBehavior(MdiBehavior::REQUIRED),
+    m_dockBehavior(DockBehavior::OPTIONAL),
+    m_closeBehavior(CloseBehavior::LAST_MDI)
 {
     qDebug() << QString("TxtDocument::TxtDocument(%1)").arg(name.c_str());
 }
@@ -29,7 +31,6 @@ void TxtDocument::done() {
 bool TxtDocument::isActive() {
     return m_activeState;
 }
-
 QWidget *TxtDocument::newView(const std::string & userType) const {
     if (userType == "Hierarchy") {
         qDebug() << QString("Txt Document does not support Hierarchy view");
@@ -44,20 +45,22 @@ QWidget *TxtDocument::newView(const std::string & userType) const {
 const std::string & TxtDocument::name() const {
     return m_name;
 }
-
-void TxtDocument::setBehavior(const DocBehavior & behavior) {
-    m_behavior = behavior;
+MdiBehavior TxtDocument::mdiBehavior() const {
+    return m_mdiBehavior;
 }
-const DocBehavior & TxtDocument::behavior() const {
-    return m_behavior;
+DockBehavior TxtDocument::dockBehavior() const {
+    return m_dockBehavior;
+}
+CloseBehavior TxtDocument::closeBehavior() const {
+    return m_closeBehavior;
 }
 
-
-
-SchDocument::SchDocument(const std::string & name, const DocBehavior & behavior) :
+SchDocument::SchDocument(const std::string & name) :
     m_name(name),
     m_activeState(false),
-    m_behavior(behavior)
+    m_mdiBehavior(MdiBehavior::REQUIRED),
+    m_dockBehavior(DockBehavior::OPTIONAL),
+    m_closeBehavior(CloseBehavior::LAST_MDI)
 {
     qDebug() << QString("SchDocument::SchDocument(%1)").arg(name.c_str());
 }
@@ -80,7 +83,6 @@ void SchDocument::done() {
 bool SchDocument::isActive() {
     return m_activeState;
 }
-
 QWidget *SchDocument::newView(const std::string & userType) const {
     qDebug() << QString("SchDocument::newView(%1) (%2)").
                 arg(userType.c_str()).arg(m_name.c_str());
@@ -91,9 +93,65 @@ QWidget *SchDocument::newView(const std::string & userType) const {
 const std::string & SchDocument::name() const {
     return m_name;
 }
-void SchDocument::setBehavior(const DocBehavior & behavior) {
-    m_behavior = behavior;
+MdiBehavior SchDocument::mdiBehavior() const {
+    return m_mdiBehavior;
 }
-const DocBehavior & SchDocument::behavior() const {
-    return m_behavior;
+DockBehavior SchDocument::dockBehavior() const {
+    return m_dockBehavior;
 }
+CloseBehavior SchDocument::closeBehavior() const {
+    return m_closeBehavior;
+}
+
+PrjDocument::PrjDocument(const std::string & name) :
+    m_name(name),
+    m_activeState(false),
+    m_mdiBehavior(MdiBehavior::OPTIONAL),
+    m_dockBehavior(DockBehavior::OPTIONAL),
+    m_closeBehavior(CloseBehavior::LAST_MDI)
+{
+    qDebug() << QString("PrjDocument::PrjDocument(%1)").arg(name.c_str());
+}
+PrjDocument::~PrjDocument() {
+    done();
+    qDebug() << QString("PrjDocument::~PrjDocument() (%1)").arg(m_name.c_str());
+}
+void PrjDocument::init() {
+    if (m_activeState)
+        return;
+    qDebug() << "PrjDocument::init()" << m_name.c_str();
+    m_activeState = true;
+}
+void PrjDocument::done() {
+    if (!m_activeState)
+        return;
+    qDebug() << "PrjDocument::done() " << m_name.c_str();
+    m_activeState = false;
+}
+bool PrjDocument::isActive() {
+    return m_activeState;
+}
+QWidget *PrjDocument::newView(const std::string & userType) const {
+    if (userType == "Project Tree") {
+        qDebug() << QString("PrjDocument::newView(%1) (%2)").
+                    arg(userType.c_str()).arg(m_name.c_str());
+        return new QTextEdit(QString("PrjDocument/%1/%2").
+                            arg(m_name.c_str()).arg(userType.c_str()));
+    } else {
+        return nullptr;
+    }
+
+}
+const std::string & PrjDocument::name() const {
+    return m_name;
+}
+MdiBehavior PrjDocument::mdiBehavior() const {
+    return m_mdiBehavior;
+}
+DockBehavior PrjDocument::dockBehavior() const {
+    return m_dockBehavior;
+}
+CloseBehavior PrjDocument::closeBehavior() const {
+    return m_closeBehavior;
+}
+
