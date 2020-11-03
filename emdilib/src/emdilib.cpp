@@ -362,13 +362,24 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
 
-//    auto fropt = getRecord<FrameRecord>("ptr", sw);
-//    assert(fropt);
-//    assert(fropt->ptr == _selectedMdiFrame()->ptr);
-//    auto dwropt = getRecord<DocWidgetRecord>("ID", fropt->docWidgetID);
-//    assert(fropt);
-//    auto dropt = getRecord<DocRecord>("ID", dwropt->docID);
-//    assert(dropt);
+
+    /*
+    Currently
+    Identify current doc, inherently based on MDI selection
+    Go through each frame, use existing or create new docWidget from that doc
+    If current doc doesn't create one, then clear the Dock
+    Problem: project doc doesn't have MDI, so it will never be selected
+
+    New
+    Go through each frame
+    If there is a currently selected MDI, use existing or create new docWidget from that doc
+    If that fails, then check if there is a docWidget with frame's userType
+    enforcement of exactly one project doc lies elsewhere.
+    If that fails, then clear dock
+
+
+
+*/
 
     auto mwr = _dbMainWindow(mw);
     QString dockFrameStr = QString("SELECT  *                   \n"
@@ -376,35 +387,61 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
                                    "WHERE   attach = 'Dock' AND \n"
                                    "        mainWindowID = %1;").arg(mwr.ID);
 
-    auto dropt = _selectedDoc();
     QString docWidgetStr = QString("SELECT  *                   \n"
                                    "FROM    docWidgets          \n"
-                                   "WHERE   userType = '%2' AND \n"
-                                   "        docID    = %1;").
-                                   arg(dropt->ID);
+                                   "WHERE   userType = '%1' AND \n"
+                                   "        docID    = %2;");
 
+    QString docWidgetStrUt = QString("SELECT  *                   \n"
+                                     "FROM    docWidgets          \n"
+                                     "WHERE   userType = '%1';");
+
+    auto seldropt = _selectedDoc();
     auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
-        // this works for selected doc, but not yet for project
-        // Find or create docWidget for this frame, for selected MDI doc
-        QString dws = docWidgetStr.arg(fr.userType.c_str());
-        auto dwropt = getRecord<DocWidgetRecord>(dws);
-        if (dwropt) { // attach if already exists
-            _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
-            static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-        } else { // attempt to create new docWidget
-            QWidget *docWidget = dropt->ptr->newView(fr.userType);
-            if(docWidget) {
-                // Attach new view if available
-                _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
-                dwropt = getRecord<DocWidgetRecord>(dws);
-                _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
-                static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-            } else {
-                // Clear dock frame when unavailable
-                static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+        QWidget *ptr = nullptr;
+        std::optional<DocRecord> dropt = std::nullopt;
+        if (seldropt) {
+            dropt = seldropt;
+        } else {
+            // Use selected doc or the first one with correct userType
+            // Proper thing is to introduce a userTypes table and a mapping table
+            // to map docs, docWidgets, and frames to userTypes.  A doc
+            // may have multiple userType mappings, but docWidgets and
+            // frames would each get one.
+            auto drs = getRecords<DocRecord>("SELECT * FROM docs;");
+            for (auto dr : drs) {
+                if (dr.ptr->supportsUserType(fr.userType)) {
+                    dropt = dr;
+                    break;
+                }
             }
         }
+        if (dropt) {
+            // Find or create docWidget for this frame, for selected MDI doc
+            QString dws = docWidgetStr.arg(fr.userType.c_str()).arg(dropt->ID);
+            auto dwropt = getRecord<DocWidgetRecord>(dws);
+            if (dwropt) { // attach if already exists
+                _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
+                ptr = dwropt->ptr;
+                //static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
+            } else { // attempt to create new docWidget
+                QWidget *docWidget = dropt->ptr->newView(fr.userType);
+                if(docWidget) { // New view is valid
+                    _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
+                    dwropt = getRecord<DocWidgetRecord>(dws);
+                    _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
+                    ptr = dwropt->ptr;
+                    //static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
+                } else { // Nothing works; clear out dock frame
+                    //static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+                }
+            }
+        } else { // No usable docs
+            //static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+        }
+        static_cast<QDockWidget *>(fr.ptr)->setWidget(ptr);
+
     }
 }
 void Emdi::_clearDockFrames() {

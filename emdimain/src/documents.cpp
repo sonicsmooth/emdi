@@ -31,15 +31,18 @@ void TxtDocument::done() {
 bool TxtDocument::isActive() {
     return m_activeState;
 }
+bool TxtDocument::supportsUserType(const std::string & userType) const {
+    return (userType != "Project Tree") &&
+           (userType != "Hierarchy");
+}
 QWidget *TxtDocument::newView(const std::string & userType) const {
-    if (userType == "Hierarchy") {
-        qDebug() << QString("Txt Document does not support Hierarchy view");
-        return nullptr;
-    } else {
+    if (supportsUserType(userType)) {
         qDebug() << QString("TxtDocument::newView(%1) (%2)").
                     arg(userType.c_str()).arg(m_name.c_str());
         return new QTextEdit(QString("TxtDocument/%1/%2").
                             arg(m_name.c_str()).arg(userType.c_str()));
+    } else {
+        return nullptr;
     }
 }
 const std::string & TxtDocument::name() const {
@@ -83,11 +86,18 @@ void SchDocument::done() {
 bool SchDocument::isActive() {
     return m_activeState;
 }
+bool SchDocument::supportsUserType(const std::string & userType) const {
+    return userType != "Project Tree";
+}
 QWidget *SchDocument::newView(const std::string & userType) const {
-    qDebug() << QString("SchDocument::newView(%1) (%2)").
-                arg(userType.c_str()).arg(m_name.c_str());
-    return new QTextEdit(QString("SchDocument/%1/%2").
-                         arg(m_name.c_str()).arg(userType.c_str()));
+    if (supportsUserType(userType)) {
+        qDebug() << QString("SchDocument::newView(%1) (%2)").
+                    arg(userType.c_str()).arg(m_name.c_str());
+        return new QTextEdit(QString("SchDocument/%1/%2").
+                             arg(m_name.c_str()).arg(userType.c_str()));
+    } else {
+        return nullptr;
+    }
 
 }
 const std::string & SchDocument::name() const {
@@ -102,6 +112,7 @@ DockBehavior SchDocument::dockBehavior() const {
 CloseBehavior SchDocument::closeBehavior() const {
     return m_closeBehavior;
 }
+
 
 PrjDocument::PrjDocument(const std::string & name) :
     m_name(name),
@@ -131,8 +142,11 @@ void PrjDocument::done() {
 bool PrjDocument::isActive() {
     return m_activeState;
 }
+bool PrjDocument::supportsUserType(const std::string & userType) const {
+    return userType == "Project Tree";
+}
 QWidget *PrjDocument::newView(const std::string & userType) const {
-    if (userType == "Project Tree") {
+    if (supportsUserType(userType)) {
         qDebug() << QString("PrjDocument::newView(%1) (%2)").
                     arg(userType.c_str()).arg(m_name.c_str());
         return new QTextEdit(QString("PrjDocument/%1/%2").

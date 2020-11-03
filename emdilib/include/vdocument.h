@@ -25,6 +25,13 @@
 // built into the type, rather than having these properties added to them
 // dynamically.
 
+
+// Somehow encode blank if empty.
+// EG project Dock shouldn't blank when an MDI is selected
+// but a hierarchy dock should blank out when the wrong MDI is selected
+// Perhaps a different way would be better...
+// Perhaps the mdi and docks are identified as participating in these
+// shenannigans or not.
 enum class MdiBehavior {
     OPTIONAL,   // System allows MDI for this doc (eg project doc)
     REQUIRED,   // Error if system detects no MDI for this doc (eg typical doc)
@@ -49,7 +56,8 @@ public:
     virtual void init() = 0;
     virtual void done() = 0;
     virtual bool isActive() = 0;
-    virtual QWidget *newView(const std::string & userType) const = 0;
+    virtual bool supportsUserType(const std::string &) const = 0;
+    virtual QWidget *newView(const std::string &) const = 0;
     virtual const std::string & name() const = 0;
     virtual MdiBehavior mdiBehavior() const = 0;
     virtual DockBehavior dockBehavior() const = 0;

@@ -17,6 +17,7 @@ public:
     void init() override;
     void done() override;
     bool isActive() override;
+    bool supportsUserType(const std::string &) const override;
     QWidget *newView(const std::string &) const override;
     const std::string & name() const override;
     MdiBehavior mdiBehavior() const override;
@@ -37,6 +38,7 @@ public:
     void init() override;
     void done() override;
     bool isActive() override;
+    bool supportsUserType(const std::string &) const override;
     QWidget *newView(const std::string &) const override;
     const std::string & name() const override;
     MdiBehavior mdiBehavior() const override;
@@ -57,6 +59,7 @@ public:
     void init() override;
     void done() override;
     bool isActive() override;
+    bool supportsUserType(const std::string &) const override;
     QWidget *newView(const std::string &) const override;
     const std::string & name() const override;
     MdiBehavior mdiBehavior() const override;
