@@ -362,41 +362,20 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
     // which also has the same userType and belongs to the given DocRecord
 
     auto mwr = _dbMainWindow(mw);
-    QString dockFrameStr = QString("SELECT  *                   \n"
-                                   "FROM    frames              \n"
-                                   "WHERE   attach = 'Dock' AND \n"
-                                   "        mainWindowID = %1;").arg(mwr.ID);
+    const QString dockFrameStr = QString("SELECT  *                   \n"
+                                         "FROM    frames              \n"
+                                         "WHERE   attach = 'Dock' AND \n"
+                                         "        mainWindowID = %1;").arg(mwr.ID);
 
-    QString docWidgetStr = QString("SELECT  *                   \n"
-                                   "FROM    docWidgets          \n"
-                                   "WHERE   userType = '%1' AND \n"
-                                   "        docID    = %2;");
+    const QString docWidgetStr = QString("SELECT  *                   \n"
+                                         "FROM    docWidgets          \n"
+                                         "WHERE   userType = '%1' AND \n"
+                                         "        docID    = %2;");
 
-    QString docWidgetStrUt = QString("SELECT  *                   \n"
-                                     "FROM    docWidgets          \n"
-                                     "WHERE   userType = '%1';");
-
-    auto seldropt = _selectedDoc();
+    auto dropt = _selectedDoc();
     auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
         QWidget *ptr = nullptr;
-        std::optional<DocRecord> dropt = std::nullopt;
-        if (seldropt) {
-            dropt = seldropt;
-        } else {
-            // Use selected doc or the first one with correct userType
-            // Proper thing is to introduce a userTypes table and a mapping table
-            // to map docs, docWidgets, and frames to userTypes.  A doc
-            // may have multiple userType mappings, but docWidgets and
-            // frames would each get one.
-            auto drs = getRecords<DocRecord>("SELECT * FROM docs;");
-            for (auto dr : drs) {
-                if (dr.ptr->supportsUserType(fr.userType)) {
-                    dropt = dr;
-                    break;
-                }
-            }
-        }
         if (dropt) {
             // Find or create docWidget for this frame, for selected MDI doc
             QString dws = docWidgetStr.arg(fr.userType.c_str()).arg(dropt->ID);
@@ -415,7 +394,6 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
             }
         }
         static_cast<QDockWidget *>(fr.ptr)->setWidget(ptr);
-
     }
 }
 void Emdi::_clearDockFrames() {
