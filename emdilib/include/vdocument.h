@@ -32,23 +32,23 @@
 // Perhaps a different way would be better...
 // Perhaps the mdi and docks are identified as participating in these
 // shenannigans or not.
-enum class MdiBehavior {
-    OPTIONAL,   // System allows MDI for this doc (eg project doc)
-    REQUIRED,   // Error if system detects no MDI for this doc (eg typical doc)
-    PROHIBITED, // Error if system detects MDI attempt for this doc
-    EXCLUSIVE}; // Exactly one of MDI or Dock required for this doc (eg wizard)
+//enum class MdiBehavior {
+//    OPTIONAL,   // System allows MDI for this doc (eg project doc)
+//    REQUIRED,   // Error if system detects no MDI for this doc (eg typical doc)
+//    PROHIBITED, // Error if system detects MDI attempt for this doc
+//    EXCLUSIVE}; // Exactly one of MDI or Dock required for this doc (eg wizard)
 
-enum class DockBehavior {
-    OPTIONAL,   // System allows MDI for this doc (eg project doc)
-    REQUIRED,   // Error if system detects no MDI for this doc (eg typical doc)
-    PROHIBITED, // Error if system detects MDI attempt for this doc
-    EXCLUSIVE}; // Exactly one of MDI or Dock required for this doc (eg wizard)
+//enum class DockBehavior {
+//    OPTIONAL,   // System allows MDI for this doc (eg project doc)
+//    REQUIRED,   // Error if system detects no MDI for this doc (eg typical doc)
+//    PROHIBITED, // Error if system detects MDI attempt for this doc
+//    EXCLUSIVE}; // Exactly one of MDI or Dock required for this doc (eg wizard)
 
-enum class CloseBehavior {
-    LAST_MDI,  // doc is done() when last of its MDI is closed
-    LAST_DOCK, // doc is done() when last of its Dock is closed
-    BOTH,      // doc is done() when both its last MDI and its last Dock is closed
-    NONE};     // doc is not done() based on frames, but for some other reason
+//enum class CloseBehavior {
+//    LAST_MDI,  // doc is done() when last of its MDI is closed
+//    LAST_DOCK, // doc is done() when last of its Dock is closed
+//    BOTH,      // doc is done() when both its last MDI and its last Dock is closed
+//    NONE};     // doc is not done() based on frames, but for some other reason
 
 class Document {
 public:
@@ -59,9 +59,9 @@ public:
     virtual bool supportsUserType(const std::string &) const = 0;
     virtual QWidget *newView(const std::string &) const = 0;
     virtual const std::string & name() const = 0;
-    virtual MdiBehavior mdiBehavior() const = 0;
-    virtual DockBehavior dockBehavior() const = 0;
-    virtual CloseBehavior closeBehavior() const = 0;
+//    virtual MdiBehavior mdiBehavior() const = 0;
+//    virtual DockBehavior dockBehavior() const = 0;
+//    virtual CloseBehavior closeBehavior() const = 0;
 };
 
 
