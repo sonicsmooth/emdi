@@ -71,6 +71,12 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.duplicateMdiFrame();});
 
+    pb = new QPushButton("Duplicate to new Window");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        //emdi.popout("Hierarchy");
+    });
+
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
