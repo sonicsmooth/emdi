@@ -29,8 +29,8 @@ bool TxtDocument::isActive() {
     return m_activeState;
 }
 bool TxtDocument::supportsUserType(const std::string & userType) const {
-    return (userType != "Project Tree") &&
-           (userType != "Hierarchy");
+    return userType == "Main Editor" ||
+           userType == "Doc Properties";
 }
 QWidget *TxtDocument::newView(const std::string & userType) const {
     if (supportsUserType(userType)) {
@@ -72,7 +72,9 @@ bool SchDocument::isActive() {
     return m_activeState;
 }
 bool SchDocument::supportsUserType(const std::string & userType) const {
-    return userType != "Project Tree";
+    return userType == "Main Editor"    ||
+           userType == "Doc Properties" ||
+           userType == "Hierarchy";
 }
 QWidget *SchDocument::newView(const std::string & userType) const {
     if (supportsUserType(userType)) {
@@ -86,49 +88,6 @@ QWidget *SchDocument::newView(const std::string & userType) const {
 
 }
 const std::string & SchDocument::name() const {
-    return m_name;
-}
-
-PrjDocument::PrjDocument(const std::string & name) :
-    m_name(name),
-    m_activeState(false)
-{
-    qDebug() << QString("PrjDocument::PrjDocument(%1)").arg(name.c_str());
-}
-PrjDocument::~PrjDocument() {
-    done();
-    qDebug() << QString("PrjDocument::~PrjDocument() (%1)").arg(m_name.c_str());
-}
-void PrjDocument::init() {
-    if (m_activeState)
-        return;
-    qDebug() << "PrjDocument::init()" << m_name.c_str();
-    m_activeState = true;
-}
-void PrjDocument::done() {
-    if (!m_activeState)
-        return;
-    qDebug() << "PrjDocument::done() " << m_name.c_str();
-    m_activeState = false;
-}
-bool PrjDocument::isActive() {
-    return m_activeState;
-}
-bool PrjDocument::supportsUserType(const std::string & userType) const {
-    return userType == "Project Tree";
-}
-QWidget *PrjDocument::newView(const std::string & userType) const {
-    if (supportsUserType(userType)) {
-        qDebug() << QString("PrjDocument::newView(%1) (%2)").
-                    arg(userType.c_str()).arg(m_name.c_str());
-        return new QTextEdit(QString("PrjDocument/%1/%2").
-                            arg(m_name.c_str()).arg(userType.c_str()));
-    } else {
-        return nullptr;
-    }
-
-}
-const std::string & PrjDocument::name() const {
     return m_name;
 }
 

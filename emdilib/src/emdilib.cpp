@@ -393,7 +393,6 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
                 QWidget *docWidget = dropt->ptr->newView(fr.userType);
                 if(docWidget) { // New view is valid
                     DocWidgetRecord dwr = _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
-                    // dwropt = getRecord<DocWidgetRecord>(dws);
                     _dbUpdateFrameWithDocWidgetID(fr.ID, dwr.ID);
                     ptr = dwr.ptr;
                 }
