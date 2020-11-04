@@ -156,13 +156,13 @@ class Emdi : public QObject {
     Q_OBJECT
 private:
     void _dbInitDb();
-    void _dbAddDocument(const Document *);
+    DocRecord _dbAddDocument(const Document *);
     void _dbCloseDocument(const DocRecord &);
-    void _dbAddMainWindow(const QMainWindow *);
+    MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
-    void _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
-    void _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
-    void _dbUpdateFrameDocWidgetID(unsigned int, unsigned int);
+    DocWidgetRecord _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
+    FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
+    FrameRecord _dbUpdateFrameWithDocWidgetID(unsigned int, unsigned int);
     void _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
     void _updateDockFrames(const QMainWindow * = nullptr);
     void _clearDockFrames();

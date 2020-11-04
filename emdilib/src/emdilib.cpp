@@ -265,13 +265,14 @@ void Emdi::_dbInitDb() {
         if (!query.exec(qs))
             fatalStr(querr("Could not init", query), __LINE__);
 }
-void Emdi::_dbAddDocument(const Document *ptr) {
+DocRecord Emdi::_dbAddDocument(const Document *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
     query.bindValue(":ptr", uint64_t(ptr));
     query.bindValue(":name", QString::fromStdString(ptr->name()));
     if (!query.exec())
         fatalStr(querr("Could not execute add Document", query), __LINE__);
+    return *getRecord<DocRecord>("ptr", ptr);
 }
 void Emdi::_dbCloseDocument(const DocRecord & dr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -289,11 +290,12 @@ void Emdi::_dbCloseDocument(const DocRecord & dr) {
         fr.ptr->close();
     }
 }
-void Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
+MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString::asprintf("INSERT INTO mainWindows (ptr) VALUES (%llu);", uint64_t(ptr));
     if (!query.exec(s))
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
+    return *getRecord<MainWindowRecord>("ptr", ptr);
 }
 MainWindowRecord Emdi::_dbMainWindow(const QMainWindow *mainWindow) {
     // Return record of given ptr or error.
@@ -309,14 +311,15 @@ MainWindowRecord Emdi::_dbMainWindow(const QMainWindow *mainWindow) {
         return *mwropt;
     }
 }
-void Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, unsigned int docID) {
+DocWidgetRecord Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, unsigned int docID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("INSERT INTO docWidgets (ptr,userType,docID) VALUES (%1,'%2',%3);").
                                   arg(uint64_t(ptr)).arg(userType.c_str()).arg(docID);
     if (!query.exec(s))
         fatalStr(querr("Could not execute add docWidget", query), __LINE__);
+    return *getRecord<DocWidgetRecord>("ptr", ptr);
 }
-void Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, const std::string & userType,
+FrameRecord Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, const std::string & userType,
                        int dwID, unsigned int mwID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("INSERT INTO frames (ptr,attach,userType,docWidgetID,mainWindowID) \n"
@@ -332,14 +335,17 @@ void Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, const std::string 
     query.bindValue(":mwid", mwID);
     if (!query.exec())
         fatalStr(querr("Could not execute add Frame", query), __LINE__);
+    return *getRecord<FrameRecord>("ptr", ptr);
 }
-void Emdi::_dbUpdateFrameDocWidgetID(unsigned int ID, unsigned int docWidgetID) {
+FrameRecord Emdi::_dbUpdateFrameWithDocWidgetID(unsigned int ID, unsigned int docWidgetID) {
+    // Modifies one FrameRecord
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("UPDATE frames               \n"
-                        "SET    \"docWidgetID\" = %1 \n"
-                        "WHERE  \"ID\" is %2;").arg(docWidgetID).arg(ID);
+                        "SET    docWidgetID = %1 \n"
+                        "WHERE  ID is %2;").arg(docWidgetID).arg(ID);
     if (!query.exec(s))
         fatalStr(querr("Could not update frames table", query), __LINE__);
+    return *getRecord<FrameRecord>("ID", ID);
 }
 void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType, const MainWindowRecord & mwr) {
     // Create new MDI View as subroutine of newMdiFrame and duplicateMdiFrame
@@ -381,15 +387,15 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
             QString dws = docWidgetStr.arg(fr.userType.c_str()).arg(dropt->ID);
             auto dwropt = getRecord<DocWidgetRecord>(dws);
             if (dwropt) { // attach if already exists
-                _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
+                _dbUpdateFrameWithDocWidgetID(fr.ID, dwropt->ID);
                 ptr = dwropt->ptr;
             } else { // attempt to create new docWidget
                 QWidget *docWidget = dropt->ptr->newView(fr.userType);
                 if(docWidget) { // New view is valid
-                    _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
-                    dwropt = getRecord<DocWidgetRecord>(dws);
-                    _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
-                    ptr = dwropt->ptr;
+                    DocWidgetRecord dwr = _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
+                    // dwropt = getRecord<DocWidgetRecord>(dws);
+                    _dbUpdateFrameWithDocWidgetID(fr.ID, dwr.ID);
+                    ptr = dwr.ptr;
                 }
             }
         }
