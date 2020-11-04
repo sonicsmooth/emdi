@@ -35,13 +35,6 @@ template<typename T> std::string docName() {
     return ss.str();
 }    
 
-void newProject(const std::string &, Emdi &, docVec_t &);
-void newProject(const std::string & prjName, Emdi & emdi, docVec_t & docVec) {
-    auto p = std::make_unique<PrjDocument>(prjName);
-    emdi.addDocument(p.get());
-    emdi.showDockFrame("Project Tree");
-    docVec.push_back(std::move(p));
-}
 
 template<typename T>
 void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
@@ -57,16 +50,6 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QWidget *w = new QWidget();
     QVBoxLayout *vb = new QVBoxLayout();
     QPushButton *pb;
-
-    pb = new QPushButton("New Project Doc");
-    vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){
-        newProject("MainProject", emdi, docVec);});
-
-    pb = new QPushButton("Close Project Doc");
-    vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.closeDocument("MainProject");});
 
     pb = new QPushButton("New Schematic Doc");
     vb->addWidget(pb);

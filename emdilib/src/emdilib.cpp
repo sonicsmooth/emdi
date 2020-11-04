@@ -275,7 +275,6 @@ void Emdi::_dbAddDocument(const Document *ptr) {
 }
 void Emdi::_dbCloseDocument(const DocRecord & dr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    //dr.ptr->done();
     // Close everything by closing all the MDI frames relating to this doc
     // This won't work if MDI is an optional thing for a doc
     QString s = QString("SELECT   *                                  \n"
@@ -362,25 +361,6 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
 
-
-    /*
-    Currently
-    Identify current doc, inherently based on MDI selection
-    Go through each frame, use existing or create new docWidget from that doc
-    If current doc doesn't create one, then clear the Dock
-    Problem: project doc doesn't have MDI, so it will never be selected
-
-    New
-    Go through each frame
-    If there is a currently selected MDI, use existing or create new docWidget from that doc
-    If that fails, then check if there is a docWidget with frame's userType
-    enforcement of exactly one project doc lies elsewhere.
-    If that fails, then clear dock
-
-
-
-*/
-
     auto mwr = _dbMainWindow(mw);
     QString dockFrameStr = QString("SELECT  *                   \n"
                                    "FROM    frames              \n"
@@ -424,7 +404,6 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
             if (dwropt) { // attach if already exists
                 _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
                 ptr = dwropt->ptr;
-                //static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
             } else { // attempt to create new docWidget
                 QWidget *docWidget = dropt->ptr->newView(fr.userType);
                 if(docWidget) { // New view is valid
@@ -432,13 +411,8 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
                     dwropt = getRecord<DocWidgetRecord>(dws);
                     _dbUpdateFrameDocWidgetID(fr.ID, dwropt->ID);
                     ptr = dwropt->ptr;
-                    //static_cast<QDockWidget *>(fr.ptr)->setWidget(dwropt->ptr);
-                } else { // Nothing works; clear out dock frame
-                    //static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
                 }
             }
-        } else { // No usable docs
-            //static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
         }
         static_cast<QDockWidget *>(fr.ptr)->setWidget(ptr);
 
@@ -581,9 +555,6 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         frame->setWindowTitle(qsUserType);
         frame->show();
     }
-
-//    auto dropt = _selectedDoc(mainWindow);
-//    if (dropt)
     _updateDockFrames(mainWindow);
     }
 

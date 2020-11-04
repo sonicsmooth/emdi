@@ -6,9 +6,6 @@
 TxtDocument::TxtDocument(const std::string & name) :
     m_name(name),
     m_activeState(false)
-//    m_mdiBehavior(MdiBehavior::REQUIRED),
-//    m_dockBehavior(DockBehavior::OPTIONAL),
-//    m_closeBehavior(CloseBehavior::LAST_MDI)
 {
     qDebug() << QString("TxtDocument::TxtDocument(%1)").arg(name.c_str());
 }
@@ -48,22 +45,10 @@ QWidget *TxtDocument::newView(const std::string & userType) const {
 const std::string & TxtDocument::name() const {
     return m_name;
 }
-//MdiBehavior TxtDocument::mdiBehavior() const {
-//    return m_mdiBehavior;
-//}
-//DockBehavior TxtDocument::dockBehavior() const {
-//    return m_dockBehavior;
-//}
-//CloseBehavior TxtDocument::closeBehavior() const {
-//    return m_closeBehavior;
-//}
 
 SchDocument::SchDocument(const std::string & name) :
     m_name(name),
     m_activeState(false)
-//    m_mdiBehavior(MdiBehavior::REQUIRED),
-//    m_dockBehavior(DockBehavior::OPTIONAL),
-//    m_closeBehavior(CloseBehavior::LAST_MDI)
 {
     qDebug() << QString("SchDocument::SchDocument(%1)").arg(name.c_str());
 }
@@ -103,23 +88,10 @@ QWidget *SchDocument::newView(const std::string & userType) const {
 const std::string & SchDocument::name() const {
     return m_name;
 }
-//MdiBehavior SchDocument::mdiBehavior() const {
-//    return m_mdiBehavior;
-//}
-//DockBehavior SchDocument::dockBehavior() const {
-//    return m_dockBehavior;
-//}
-//CloseBehavior SchDocument::closeBehavior() const {
-//    return m_closeBehavior;
-//}
-
 
 PrjDocument::PrjDocument(const std::string & name) :
     m_name(name),
     m_activeState(false)
-//    m_mdiBehavior(MdiBehavior::OPTIONAL),
-//    m_dockBehavior(DockBehavior::OPTIONAL),
-//    m_closeBehavior(CloseBehavior::LAST_MDI)
 {
     qDebug() << QString("PrjDocument::PrjDocument(%1)").arg(name.c_str());
 }
@@ -159,13 +131,4 @@ QWidget *PrjDocument::newView(const std::string & userType) const {
 const std::string & PrjDocument::name() const {
     return m_name;
 }
-//MdiBehavior PrjDocument::mdiBehavior() const {
-//    return m_mdiBehavior;
-//}
-//DockBehavior PrjDocument::dockBehavior() const {
-//    return m_dockBehavior;
-//}
-//CloseBehavior PrjDocument::closeBehavior() const {
-//    return m_closeBehavior;
-//}
 
