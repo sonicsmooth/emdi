@@ -71,10 +71,10 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.duplicateMdiFrame();});
 
-    pb = new QPushButton("Duplicate to new Window");
+    pb = new QPushButton("Move to next or new Window");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        //emdi.popout("Hierarchy");
+        emdi.addMainWindow<MainWindow>();
     });
 
     pb = new QPushButton("Properties Dock");
@@ -92,14 +92,20 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     return w;
 }
 
+QMainWindow *newmw();
+QMainWindow *newmw() {
+    return new MainWindow();
+}
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
-    MainWindow w;
-    w.setCentralWidget(nullptr);
+    //MainWindow w;
+    //w.show();
+    //w.setCentralWidget(nullptr);
 
     Emdi emdi;
-    emdi.addMainWindow(&w);
+    //emdi.addMainWindow(&w);
+    emdi.addMainWindow<MainWindow>();
     docVec_t docVec;
 
     QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
@@ -115,6 +121,6 @@ int main(int argc, char *argv[]) {
 #endif
 
     buttWindow->show();
-    w.show();
+    //w.show();
     return a.exec();
 }

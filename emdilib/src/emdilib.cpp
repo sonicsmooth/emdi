@@ -176,15 +176,15 @@ QString querr(const QString & comment, const QSqlQuery & query) {
 }
 
 
-bool FilterObject::eventFilter(QObject *obj, QEvent *event) {
+bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
     if (event->type() == QEvent::Close) {
-        m_emdi->_onMdiClosed(obj);
+        //m_emdi->_onMdiClosed(obj);
+        m_fn(obj);
         return true;
     } else {
         return QObject::eventFilter(obj, event);
     }
 }
-
 
 
 
@@ -292,10 +292,16 @@ void Emdi::_dbCloseDocument(const DocRecord & dr) {
 }
 MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString::asprintf("INSERT INTO mainWindows (ptr) VALUES (%llu);", uint64_t(ptr));
+    QString s = QString("INSERT INTO mainWindows (ptr) VALUES (%1);").arg(uint64_t(ptr));
     if (!query.exec(s))
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", ptr);
+}
+void Emdi::_dbRemoveMainWindow(const QMainWindow *mw) {
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("DELETE FROM mainWindows WHERE ptr = %1;").arg(uint64_t(mw));
+    if (!query.exec(s))
+        fatalStr(querr("Could not execute remove mainWindow", query), __LINE__);
 }
 MainWindowRecord Emdi::_dbMainWindow(const QMainWindow *mainWindow) {
     // Return record of given ptr or error.
@@ -352,7 +358,7 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     QMdiSubWindow *frame = new QMdiSubWindow();
     _dbAddFrame(frame, AttachmentType::MDI, userType, int(dwr.ID), mwr.ID);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-    //frame->installEventFilter(new FilterObject(frame, this));
+    //frame->installEventFilter(new CloseFilter(frame, this));
     frame->setWidget(dwr.ptr);
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
     mdi->addSubWindow(frame);
@@ -446,16 +452,6 @@ std::optional<DocRecord> Emdi::_selectedDoc(const QMainWindow *mainWindow) {
         return getRecord<DocRecord>("ID", dwropt->docID);
 }
 
-void Emdi::addMainWindow(QMainWindow *mainWindow) {
-    // Make sure mainwindow has MDI area
-    _dbAddMainWindow(mainWindow);
-    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mainWindow->centralWidget());
-    if (mdi)
-        return;
-    mdi = new QMdiArea();
-    mainWindow->setCentralWidget(mdi);
-    QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
-}
 void Emdi::addDocument(const Document *doc) {
     // Don't allow nameless docs to be added
     assert(doc->name().size());
@@ -542,6 +538,14 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
     }
 
 // Public Slots
+void Emdi::_onMainWindowClosed(QObject *obj) {
+    QMainWindow *mw = static_cast<QMainWindow *>(obj);
+    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
+    // This also has the desired effect of closing and removing
+    // the docWidgets and the docs from the db.
+    mdi->closeAllSubWindows();
+    _dbRemoveMainWindow(mw);
+}
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
     qDebug("_onMdiActivated");
     if (!sw) {

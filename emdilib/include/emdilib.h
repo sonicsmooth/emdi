@@ -5,6 +5,7 @@
 #include "vdocument.h"
 
 #include <QMainWindow>
+#include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QSqlRecord>
 #include <QSqlQuery>
@@ -151,6 +152,20 @@ std::vector<RET_T> getRecords(const QString & select) {
     return vec;
 }
 
+class Emdi;
+
+class CloseFilter : public QObject {
+private:
+    Emdi *m_emdi;
+    std::function<void (QObject *)> m_fn;
+public:
+    CloseFilter(QObject *parent, Emdi *emdi, std::function<void (QObject *)> fn) :
+        QObject(parent),
+        m_emdi(emdi),
+        m_fn(fn) {}
+    ~CloseFilter() override {qDebug("~CloseFilter()");}
+    bool eventFilter(QObject *watched, QEvent *event) override;
+};
 
 class Emdi : public QObject {
     Q_OBJECT
@@ -159,6 +174,7 @@ private:
     DocRecord _dbAddDocument(const Document *);
     void _dbCloseDocument(const DocRecord &);
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
+    void _dbRemoveMainWindow(const QMainWindow *);
     MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
     DocWidgetRecord _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
@@ -174,7 +190,24 @@ private:
 public:
     Emdi();
     ~Emdi();
-    void addMainWindow(QMainWindow *);
+    template <typename T>
+    void addMainWindow(T *mainWindow = nullptr) {
+        // Make sure mainwindow has MDI area
+        QMainWindow *mw = mainWindow ? mainWindow : new T();
+        mw->setAttribute(Qt::WA_DeleteOnClose);
+        _dbAddMainWindow(mw);
+        QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
+        if (mdi)
+            return;
+        mdi = new QMdiArea();
+        mw->setCentralWidget(mdi);
+        QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
+        // Install filter so we can access mdiarea
+        std::function<void(QObject *)> f = [this](QObject *obj) {_onMainWindowClosed(obj);};
+        CloseFilter *cf = new CloseFilter(mw, this, f);
+        mw->installEventFilter(cf);
+        mw->show();
+    }
     void addDocument(const Document *);
     // removeDocument
     // openDocument
@@ -183,23 +216,17 @@ public:
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
 
+
 signals:
     void destroy(void *);
 public slots:
+    void _onMainWindowClosed(QObject *);
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);
     void _onDockClosed(QObject *);
 
 };
 
-class FilterObject : public QObject {
-private:
-    Emdi *m_emdi;
-public:
-    FilterObject(QObject *parent, Emdi *emdi) : QObject(parent), m_emdi(emdi){}
-    ~FilterObject() override {qDebug("~FilterObject()");}
-    bool eventFilter(QObject *watched, QEvent *event) override;
-};
 
 
 
