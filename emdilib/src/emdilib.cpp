@@ -355,7 +355,7 @@ FrameRecord Emdi::_dbUpdateFrameWithDocWidgetID(unsigned int ID, unsigned int do
 }
 void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType, const MainWindowRecord & mwr) {
     // Create new MDI View as subroutine of newMdiFrame and duplicateMdiFrame
-    QMdiSubWindow *frame = new QMdiSubWindow();
+    QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
     _dbAddFrame(frame, AttachmentType::MDI, userType, int(dwr.ID), mwr.ID);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
     //frame->installEventFilter(new CloseFilter(frame, this));
@@ -429,6 +429,10 @@ void Emdi::_clearDockFrames() {
 
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
     auto mwr = _dbMainWindow(mainWindow);
+    // TODO: Something here about optional mainwindows
+    // TODO : or find the currently selected mainwindow
+    // TODO : what to do when there is no mainwindow and
+    // TODO : closeDocument is called.
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
     assert(mdi);
     QMdiSubWindow *sw = mdi->activeSubWindow();
@@ -451,7 +455,30 @@ std::optional<DocRecord> Emdi::_selectedDoc(const QMainWindow *mainWindow) {
     else
         return getRecord<DocRecord>("ID", dwropt->docID);
 }
-
+void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
+    m_mainWindowCtor = fn;
+}
+void Emdi::setMdiWindowCtor(const QMdiSubWindowFn_t & fn) {
+    m_mdiSubWindowCtor = fn;
+}
+void Emdi::setDockWidgetCtor(const QDockWidgetFn_t & fn) {
+    m_dockWidgetCtor = fn;
+}
+void Emdi::addMainWindow() {
+    // Creates and sets up new mainwindow
+    // then calls the other addMainWindow to make sure
+    // it goes in the db
+    QMainWindow *mainWindow = m_mainWindowCtor ? m_mainWindowCtor() : new QMainWindow;
+    _dbAddMainWindow(mainWindow);
+    QMdiArea *mdi = new QMdiArea();
+    mainWindow->setCentralWidget(mdi);
+    QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
+    // Install filter so we can access mdiarea when closing, before destructor
+    std::function<void(QObject *)> f = [this](QObject *obj) {_onMainWindowClosed(obj);};
+    CloseFilter *cf = new CloseFilter(mainWindow, this, f);
+    mainWindow->installEventFilter(cf);
+    mainWindow->show();
+}
 void Emdi::addDocument(const Document *doc) {
     // Don't allow nameless docs to be added
     assert(doc->name().size());
@@ -465,8 +492,6 @@ void Emdi::closeDocument(const std::string & name) {
     } else {
         qDebug() << "Can't find document " << name.c_str();
     }
-
-
 }
 
 void Emdi::newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
@@ -474,9 +499,19 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     // docName is critical -- error if not found or empty
     // userType is not critical -- just used in title
     // Uses the first docName found, so docName should be unique in database
+
+    // Make sure we have a document
     assert(docName.size());
     auto dropt = getRecord<DocRecord>("name", docName);
     assert(dropt);
+
+    // Make sure we have a mainWindow
+    auto mwropt = getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
+    if (!mwropt)
+        addMainWindow();
+    auto mwr = _dbMainWindow(mainWindow);
+
+    // Ensure doc is open, then get a view
     Document *doc = dropt->ptr;
     bool oldActive = doc->isActive(); // remember for a few lines
     if (!oldActive)
@@ -487,9 +522,10 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
             doc->done();
         return; // nullptr if doc doesn't support userType
     }
+
+    // Add doc and mdi to db
     _dbAddDocWidget(docWidget, userType, dropt->ID);
     DocWidgetRecord dwr = *getRecord<DocWidgetRecord>("ptr", docWidget);
-    auto mwr = _dbMainWindow(mainWindow);
     _newMdiFrame(dwr, userType, mwr);
     // update is called by onMdiActivated
 }
@@ -512,7 +548,13 @@ void Emdi::duplicateMdiFrame() {
 }
 void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) {
     // Look for existing dockframe, return if found, else create new one
+
+    // Make sure we have a mainWindow
+    auto mwropt = getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
+    if (!mwropt)
+        addMainWindow();
     auto mwr = _dbMainWindow(mainWindow);
+
     QString qsUserType = QString::fromStdString(userType);
     QString s = QString("SELECT *      \n"
                         "FROM   frames \n"
@@ -526,7 +568,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         fropt->ptr->show();
         return;
     } else {
-        QDockWidget *frame = new QDockWidget();
+        QDockWidget *frame = m_dockWidgetCtor ? m_dockWidgetCtor() : new QDockWidget;
         mwr.ptr->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
         _dbAddFrame(frame, AttachmentType::Dock, userType, -1, mwr.ID);
         QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onDockClosed);

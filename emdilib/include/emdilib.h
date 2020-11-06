@@ -11,6 +11,7 @@
 #include <QSqlQuery>
 #include <QWidget>
 
+#include <map>
 #include <optional>
 
 
@@ -92,7 +93,6 @@ T qVal(const QSqlQuery & query, const QString & field) {
 
 QString limitstr(int);
 QString selectStr(const QString & table, const QString & field, unsigned int, int = -1);
-//QString selectStr(const QString & table, const QString & field, uint64_t, int = -1);
 QString selectStr(const QString & table, const QString & field, const std::string &, int = -1);
 QString selectStr(const QString & table, const QString & field, const QMainWindow *, int = -1);
 QString selectStr(const QString & table, const QString & field, const QWidget *, int = -1);
@@ -167,9 +167,18 @@ public:
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
+using QMainWindowFn_t = std::function<QMainWindow * ()>;
+using QMdiSubWindowFn_t = std::function<QMdiSubWindow * ()>;
+using QDockWidgetFn_t = std::function<QDockWidget * ()>;
+
 class Emdi : public QObject {
     Q_OBJECT
 private:
+
+    QMainWindowFn_t m_mainWindowCtor;
+    QMdiSubWindowFn_t m_mdiSubWindowCtor;
+    QDockWidgetFn_t m_dockWidgetCtor;
+
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);
     void _dbCloseDocument(const DocRecord &);
@@ -185,29 +194,14 @@ private:
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
     std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
     std::optional<DocRecord> _selectedDoc(const QMainWindow * = nullptr);
-    
 
 public:
     Emdi();
     ~Emdi();
-    template <typename T>
-    void addMainWindow(T *mainWindow = nullptr) {
-        // Make sure mainwindow has MDI area
-        QMainWindow *mw = mainWindow ? mainWindow : new T();
-        mw->setAttribute(Qt::WA_DeleteOnClose);
-        _dbAddMainWindow(mw);
-        QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
-        if (mdi)
-            return;
-        mdi = new QMdiArea();
-        mw->setCentralWidget(mdi);
-        QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
-        // Install filter so we can access mdiarea
-        std::function<void(QObject *)> f = [this](QObject *obj) {_onMainWindowClosed(obj);};
-        CloseFilter *cf = new CloseFilter(mw, this, f);
-        mw->installEventFilter(cf);
-        mw->show();
-    }
+    void setMainWindowCtor(const QMainWindowFn_t &);
+    void setMdiWindowCtor(const QMdiSubWindowFn_t &);
+    void setDockWidgetCtor(const QDockWidgetFn_t &);
+    void addMainWindow();
     void addDocument(const Document *);
     // removeDocument
     // openDocument

@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QDebug>
+#include <QDockWidget>
 #include <QInputDialog>
 #include <QMdiArea>
 #include <QMdiSubWindow>
@@ -45,6 +46,8 @@ void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     docVec.push_back(std::move(p));
 }
 
+
+
 QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QWidget *w = new QWidget();
@@ -74,7 +77,7 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Move to next or new Window");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.addMainWindow<MainWindow>();
+        emdi.addMainWindow();
     });
 
     pb = new QPushButton("Properties Dock");
@@ -104,8 +107,10 @@ int main(int argc, char *argv[]) {
     //w.setCentralWidget(nullptr);
 
     Emdi emdi;
-    //emdi.addMainWindow(&w);
-    emdi.addMainWindow<MainWindow>();
+    emdi.setMainWindowCtor([](){return new MainWindow;});
+    emdi.setMdiWindowCtor([](){return new QMdiSubWindow;});
+    emdi.setDockWidgetCtor([](){return new QDockWidget;});
+    emdi.addMainWindow();
     docVec_t docVec;
 
     QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
