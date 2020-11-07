@@ -46,7 +46,9 @@ void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     docVec.push_back(std::move(p));
 }
 
-
+// Pop out
+// If solo, ignore
+// Else, find next window
 
 QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
@@ -116,6 +118,8 @@ int main(int argc, char *argv[]) {
     QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
         docVec.remove_if([&](const std::unique_ptr<Document> & up) {
             return up.get() == static_cast<Document *>(p);});});
+    QObject::connect(qApp, &QApplication::focusChanged, [](){qDebug("focus changed");});
+    
     QWidget *buttWindow = buttonWindow(emdi, docVec);
 
 

@@ -184,7 +184,8 @@ private:
     void _dbCloseDocument(const DocRecord &);
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     void _dbRemoveMainWindow(const QMainWindow *);
-    MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
+    std::optional<MainWindowRecord> _dbMainWindow();
+    //MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
     DocWidgetRecord _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
     FrameRecord _dbUpdateFrameWithDocWidgetID(unsigned int, unsigned int);
