@@ -4,6 +4,8 @@
 #include "emdilib_global.h"
 #include "vdocument.h"
 
+#include <QEvent>
+#include <QFocusEvent>
 #include <QMainWindow>
 #include <QMdiArea>
 #include <QMdiSubWindow>
@@ -178,6 +180,7 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
+    std::optional<MainWindowRecord> m_lastMWROpt;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);
@@ -185,7 +188,6 @@ private:
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow();
-    //MainWindowRecord _dbMainWindow(const QMainWindow * = nullptr);
     DocWidgetRecord _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
     FrameRecord _dbUpdateFrameWithDocWidgetID(unsigned int, unsigned int);
@@ -219,6 +221,7 @@ public slots:
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);
     void _onDockClosed(QObject *);
+    void _onFocusChanged(QWidget *, QWidget *);
 
 };
 

@@ -3,6 +3,8 @@
 #include <QApplication>
 #include <QDebug>
 #include <QDockWidget>
+#include <QEvent>
+#include <QFocusEvent>
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QMdiArea>
@@ -177,16 +179,11 @@ QString querr(const QString & comment, const QSqlQuery & query) {
 
 
 bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
-    if (event->type() == QEvent::Close) {
-        //m_emdi->_onMdiClosed(obj);
+    (void) event;
+    if (event->type() == QEvent::Close)
         m_fn(obj);
-        return true;
-    } else {
-        return QObject::eventFilter(obj, event);
-    }
+    return false;
 }
-
-
 
 
 Emdi::Emdi() {
@@ -196,6 +193,7 @@ Emdi::Emdi() {
     qDebug("Hi from lib qt_no_debug");
 #endif
     _dbInitDb();
+    QObject::connect(qApp, &QApplication::focusChanged, this, &Emdi::_onFocusChanged);
 
 }
 Emdi::~Emdi() {
@@ -307,14 +305,17 @@ std::optional<MainWindowRecord> Emdi::_dbMainWindow() {
     // Return record of currently active mainWindow, if it exists
     // If the currently active window is not a mainwindow, then choose the first
     // mainwindow from db.  This could still fail, so we return opt
-    QMainWindow *mw = static_cast<QMainWindow *>(qApp->activeWindow());
-    QString s = QString("SELECT * FROM mainWindows WHERE ptr = %1").arg(uint64_t(mw));
-    auto mwropt = getRecord<MainWindowRecord>(s);
-    if (!mwropt) {
-        s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
-        mwropt = getRecord<MainWindowRecord>(s);
+
+    //QMainWindow *mw = static_cast<QMainWindow *>(qApp->activeWindow());
+    //QString s = QString("SELECT * FROM mainWindows WHERE ptr = %1").arg(uint64_t(mw));
+    //auto mwropt = getRecord<MainWindowRecord>(s);
+    if (m_lastMWROpt) {
+        return m_lastMWROpt;
     }
-    return mwropt;
+    else {
+        QString s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
+        return getRecord<MainWindowRecord>(s);
+    }
 }
 // MainWindowRecord Emdi::_dbMainWindow(const QMainWindow *mainWindow) {
 //     // Return record of given ptr or error.
@@ -396,7 +397,6 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
                                          "FROM    docWidgets          \n"
                                          "WHERE   userType = '%1' AND \n"
                                          "        docID    = %2;");
-
     auto dropt = _selectedDoc();
     auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
@@ -441,13 +441,11 @@ void Emdi::_clearDockFrames() {
 }
 
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
-    auto mwr = *_dbMainWindow(/*mainWindow*/);
-    // TODO: Something here about optional mainwindows
-    // TODO : or find the currently selected mainwindow
-    // TODO : what to do when there is no mainwindow and
-    // TODO : closeDocument is called.
-    QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
-    assert(mdi);
+    (void) mainWindow;
+    auto mwropt = _dbMainWindow();
+    if (!mwropt)
+        return std::nullopt;
+    QMdiArea *mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
     QMdiSubWindow *sw = mdi->activeSubWindow();
     if (!sw)
         return std::nullopt;
@@ -486,11 +484,16 @@ void Emdi::addMainWindow() {
     QMdiArea *mdi = new QMdiArea();
     mainWindow->setCentralWidget(mdi);
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
-    // Install filter so we can access mdiarea when closing, before destructor
-    std::function<void(QObject *)> f = [this](QObject *obj) {_onMainWindowClosed(obj);};
-    CloseFilter *cf = new CloseFilter(mainWindow, this, f);
+
+    // Make sure we know who is selected
+    mainWindow->setFocusPolicy(Qt::ClickFocus);
+
+    // Install MDI select filter so we can access mdiarea when closing, before destructor
+    std::function<void(QObject *)> f2 = [this](QObject *obj) {_onMainWindowClosed(obj);};
+    CloseFilter *cf = new CloseFilter(mainWindow, this, f2);
     mainWindow->installEventFilter(cf);
     mainWindow->show();
+    mainWindow->setFocus(Qt::MouseFocusReason);
 }
 void Emdi::addDocument(const Document *doc) {
     // Don't allow nameless docs to be added
@@ -700,5 +703,30 @@ void Emdi::_onDockClosed(QObject *sw) {
                 "WHERE frames.ID = %1;  ").arg(fr->ID);
     if (!query.exec(s)) {
         fatalStr(querr("Could not delete frame", query), __LINE__);
+    }
+}
+void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
+    // Capture last mainWindowRecord only when it matches
+    // Unless it's zero, in which case nullopt is okay
+    QMainWindow *mw = now ? static_cast<QMainWindow *>(now->window()) : nullptr ;
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = "SELECT count(ID) AS CID FROM mainWindows;";
+    if (!query.exec(s)) {
+        fatalStr(querr("Could not count mainWIndows", query), __LINE__);
+    }
+    auto mwropt = getRecord<MainWindowRecord>("ptr", mw);
+    query.next();
+    int n = qVal<int>(query, "CID");
+    if (n == 0) {
+        m_lastMWROpt = std::nullopt;
+        qDebug() << "Deselected mainwindows";
+    } else {
+        if (mwropt) {
+            // the selected widget is a found mainwindow
+            m_lastMWROpt = mwropt;
+            qDebug() << "Selected " << mwropt->ID;
+       } else {
+           // the selected widget is not a found mainwindow
+       }
     }
 }

@@ -104,9 +104,6 @@ QMainWindow *newmw() {
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
-    //MainWindow w;
-    //w.show();
-    //w.setCentralWidget(nullptr);
 
     Emdi emdi;
     emdi.setMainWindowCtor([](){return new MainWindow;});
@@ -118,7 +115,6 @@ int main(int argc, char *argv[]) {
     QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
         docVec.remove_if([&](const std::unique_ptr<Document> & up) {
             return up.get() == static_cast<Document *>(p);});});
-    QObject::connect(qApp, &QApplication::focusChanged, [](){qDebug("focus changed");});
     
     QWidget *buttWindow = buttonWindow(emdi, docVec);
 
