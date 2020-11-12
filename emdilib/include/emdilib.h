@@ -197,6 +197,9 @@ private:
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
     std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
     std::optional<DocRecord> _selectedDoc(const QMainWindow * = nullptr);
+    unsigned int _dbCountMdiFrames();
+    void _dbIncrMainWindow(unsigned int);
+    void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &);
 
 public:
     Emdi();
@@ -204,7 +207,7 @@ public:
     void setMainWindowCtor(const QMainWindowFn_t &);
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
-    void addMainWindow();
+    void newMainWindow();
     void addDocument(const Document *);
     // removeDocument
     // openDocument
@@ -212,7 +215,8 @@ public:
     void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
-
+    bool popoutMdiFrame();
+    bool duplicateAndPopoutMdiFrame();
 
 signals:
     void destroy(void *);

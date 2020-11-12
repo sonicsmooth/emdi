@@ -242,6 +242,7 @@ void Emdi::_dbInitDb() {
                        "                     FOREIGN KEY(mainWindowID) REFERENCES mainWindows(ID));   \n",
 
                        "CREATE TABLE mainWindows (ID          INTEGER PRIMARY KEY AUTOINCREMENT,      \n"
+                       "                          selected    INTEGER UNIQUE,                         \n"
                        "                          ptr         INTEGER UNIQUE);                        \n",
 
                        "CREATE TRIGGER multidocks_insert_fail                                         \n"
@@ -289,8 +290,12 @@ void Emdi::_dbCloseDocument(const DocRecord & dr) {
     }
 }
 MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
+    // Add a main window to the database
+    // Make sure selected is the highest select
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString("INSERT INTO mainWindows (ptr) VALUES (%1);").arg(uint64_t(ptr));
+    QString s = QString("INSERT INTO mainWindows (selected, ptr)      \n "
+                        "VALUES ((SELECT IFNULL(MAX(selected), 0) + 1 \n "
+                        "         FROM    mainWindows), %1);").arg(uint64_t(ptr));
     if (!query.exec(s))
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", ptr);
@@ -302,35 +307,11 @@ void Emdi::_dbRemoveMainWindow(const QMainWindow *mw) {
         fatalStr(querr("Could not execute remove mainWindow", query), __LINE__);
 }
 std::optional<MainWindowRecord> Emdi::_dbMainWindow() {
-    // Return record of currently active mainWindow, if it exists
-    // If the currently active window is not a mainwindow, then choose the first
-    // mainwindow from db.  This could still fail, so we return opt
-
-    //QMainWindow *mw = static_cast<QMainWindow *>(qApp->activeWindow());
-    //QString s = QString("SELECT * FROM mainWindows WHERE ptr = %1").arg(uint64_t(mw));
-    //auto mwropt = getRecord<MainWindowRecord>(s);
-    if (m_lastMWROpt) {
-        return m_lastMWROpt;
-    }
-    else {
-        QString s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
-        return getRecord<MainWindowRecord>(s);
-    }
+    // Return most recently selected mainWindow
+    // or nullopt if nothing found
+    QString s = "SELECT * FROM mainWindows ORDER BY \"selected\" DESC LIMIT 1;";
+    return getRecord<MainWindowRecord>(s);
 }
-// MainWindowRecord Emdi::_dbMainWindow(const QMainWindow *mainWindow) {
-//     // Return record of given ptr or error.
-//     // If ptr is null, return QApplication::activeWindow, after verifying it's in the db
-//     if (!mainWindow) {
-//         QString s = "SELECT * FROM mainWindows ORDER BY ID DESC LIMIT 1;";
-//         auto mwropt = getRecord<MainWindowRecord>(s);
-//         assert(mwropt);
-//         return *mwropt;
-//     } else {
-//         auto mwropt = getRecord<MainWindowRecord>("ptr", mainWindow);
-//         assert(mwropt);
-//         return *mwropt;
-//     }
-// }
 DocWidgetRecord Emdi::_dbAddDocWidget(const QWidget *ptr, const std::string & userType, unsigned int docID) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("INSERT INTO docWidgets (ptr,userType,docID) VALUES (%1,'%2',%3);").
@@ -372,7 +353,6 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
     _dbAddFrame(frame, AttachmentType::MDI, userType, int(dwr.ID), mwr.ID);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
-    //frame->installEventFilter(new CloseFilter(frame, this));
     frame->setWidget(dwr.ptr);
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
     mdi->addSubWindow(frame);
@@ -439,7 +419,6 @@ void Emdi::_clearDockFrames() {
         static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
     }
 }
-
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
     (void) mainWindow;
     auto mwropt = _dbMainWindow();
@@ -466,6 +445,46 @@ std::optional<DocRecord> Emdi::_selectedDoc(const QMainWindow *mainWindow) {
     else
         return getRecord<DocRecord>("ID", dwropt->docID);
 }
+unsigned int Emdi::_dbCountMdiFrames() {
+    // Return how many MDI frames are in the current mainwindow
+    auto mwropt = _dbMainWindow();
+    if (!mwropt)
+        return 0;
+    unsigned int mwID = mwropt->ID;
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("SELECT count(ID)             "
+                        "FROM   frames                "
+                        "WHERE  mainWindowID = %1 AND "
+                        "       attach = 'MDI'").arg(mwID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not count MDI frames", query), __LINE__);
+    query.next();
+    return qVal<unsigned int>(query);
+}
+void Emdi::_dbIncrMainWindow(unsigned int ID) {
+    // Set the "selected" column of mainWindow given by ID to maximum + 1
+    // This allows us to see which was the most recently selected window
+    // and allows a natural ordering as the windows are created, selected,
+    // and deleted
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("UPDATE mainWindows                        \n "
+                        "SET    selected = (SELECT MAX(selected)+1 \n"
+                        "                   FROM   mainWindows)    \n"
+                        "WHERE  ID = %1;").arg(ID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
+}
+void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord &mwr) {
+    // Assigng frame record's mainWindowID to mwr.ID
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("UPDATE frames              \n "
+                        "SET    mainWindowID = %1   \n"
+                        "WHERE  ID = %2;").
+                arg(mwr.ID).
+                arg(fr.ID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
+}
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;
 }
@@ -475,7 +494,7 @@ void Emdi::setMdiWindowCtor(const QMdiSubWindowFn_t & fn) {
 void Emdi::setDockWidgetCtor(const QDockWidgetFn_t & fn) {
     m_dockWidgetCtor = fn;
 }
-void Emdi::addMainWindow() {
+void Emdi::newMainWindow() {
     // Creates and sets up new mainwindow
     // then calls the other addMainWindow to make sure
     // it goes in the db
@@ -524,8 +543,9 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     // Make sure we have a mainWindow
     auto mwropt = _dbMainWindow();
     if (!mwropt)
-        addMainWindow();
+        newMainWindow();
     auto mwr = *_dbMainWindow();
+    qDebug() << "new MDI thinks mainWindow should be " << mwr.ID;
 
     // Ensure doc is open, then get a view
     Document *doc = dropt->ptr;
@@ -570,7 +590,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
     // Make sure we have a mainWindow
     auto mwropt = getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
     if (!mwropt)
-        addMainWindow();
+        newMainWindow();
     auto mwr = *_dbMainWindow(/*mainWindow*/);
 
     QString qsUserType = QString::fromStdString(userType);
@@ -607,7 +627,7 @@ void Emdi::_onMainWindowClosed(QObject *obj) {
     _dbRemoveMainWindow(mw);
 }
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
-    qDebug("_onMdiActivated");
+//    qDebug("_onMdiActivated");
     if (!sw) {
         // A weird bug in QT, I think.
         // At startup, when you click away from the main window after initializing
@@ -706,27 +726,47 @@ void Emdi::_onDockClosed(QObject *sw) {
     }
 }
 void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
-    // Capture last mainWindowRecord only when it matches
-    // Unless it's zero, in which case nullopt is okay
+    // Increment the count of the newly selected mainWindow
+    (void) old;
     QMainWindow *mw = now ? static_cast<QMainWindow *>(now->window()) : nullptr ;
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = "SELECT count(ID) AS CID FROM mainWindows;";
     if (!query.exec(s)) {
-        fatalStr(querr("Could not count mainWIndows", query), __LINE__);
+        fatalStr(querr("Could not count mainWindows", query), __LINE__);
     }
-    auto mwropt = getRecord<MainWindowRecord>("ptr", mw);
     query.next();
-    int n = qVal<int>(query, "CID");
-    if (n == 0) {
-        m_lastMWROpt = std::nullopt;
-        qDebug() << "Deselected mainwindows";
-    } else {
-        if (mwropt) {
-            // the selected widget is a found mainwindow
-            m_lastMWROpt = mwropt;
-            qDebug() << "Selected " << mwropt->ID;
-       } else {
-           // the selected widget is not a found mainwindow
-       }
+    auto mwropt = getRecord<MainWindowRecord>("ptr", mw);
+    if (qVal<unsigned int>(query, "CID") && mwropt) {
+        _dbIncrMainWindow(mwropt->ID);
     }
+}
+bool Emdi::popoutMdiFrame() {
+    // Return false if there are fewer than 2 MDI frame in current window.
+    // Otherwise, return true after making a new window and moving
+    // currently selected MDI frame to it
+    if (_dbCountMdiFrames() < 2)
+        return false;
+    auto fropt = _selectedMdiFrame();
+    assert(fropt);
+
+    auto oldmwropt = _dbMainWindow();
+    assert(oldmwropt);
+
+    QMdiArea *mdi = static_cast<QMdiArea *>(oldmwropt->ptr->centralWidget());
+    mdi->removeSubWindow(fropt->ptr);
+
+    newMainWindow();
+    auto mwropt = _dbMainWindow();
+    mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
+    mdi->addSubWindow(fropt->ptr);
+    fropt->ptr->show();
+
+    _dbMoveMdiFrame(*fropt, *mwropt);
+
+    return true;
+}
+bool Emdi::duplicateAndPopoutMdiFrame() {
+    duplicateMdiFrame();
+    popoutMdiFrame();
+    return true;
 }
