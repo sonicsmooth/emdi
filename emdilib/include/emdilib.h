@@ -200,6 +200,7 @@ private:
     unsigned int _dbCountMdiFrames();
     void _dbIncrMainWindow(unsigned int);
     void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &);
+    std::optional<MainWindowRecord> _dbEmptyMainWindow();
 
 public:
     Emdi();

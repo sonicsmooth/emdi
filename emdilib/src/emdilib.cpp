@@ -485,6 +485,27 @@ void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord &mwr) {
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
 }
+std::optional<MainWindowRecord> Emdi::_dbEmptyMainWindow() {
+    // Finds a mainWindow in db which does not have any frames
+    // Returns the one with highest selected value
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = "SELECT *                                    "
+                "FROM   mainWindows                          "
+                "EXCEPT                                      "
+                "SELECT mainWindows.*                        "
+                "FROM   mainWindows                          "
+                "JOIN   frames                               "
+                "ON     mainWindows.ID = frames.mainWindowID "
+                "ORDER  BY selected DESC                     "
+                "LIMIT  1;                                   ";
+    if (!query.exec(s))
+        fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
+    if (query.next())
+        return std::move(query); // auto conversion to proper return type
+    else
+        return std::nullopt;
+
+}
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;
 }
@@ -755,11 +776,21 @@ bool Emdi::popoutMdiFrame() {
     QMdiArea *mdi = static_cast<QMdiArea *>(oldmwropt->ptr->centralWidget());
     mdi->removeSubWindow(fropt->ptr);
 
-    newMainWindow();
-    auto mwropt = _dbMainWindow();
+    // Use an existing empty main window, or create a new one if not found
+    auto mwropt = _dbEmptyMainWindow();
+    if (mwropt) {
+        mwropt->ptr->activateWindow();
+        mwropt->ptr->setFocus(Qt::MouseFocusReason);
+        //mwropt = _dbMainWindow();
+    }
+    else {
+        newMainWindow();
+        mwropt = _dbMainWindow();
+    }
     mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
     mdi->addSubWindow(fropt->ptr);
     fropt->ptr->show();
+    fropt->ptr->activateWindow();
 
     _dbMoveMdiFrame(*fropt, *mwropt);
 
