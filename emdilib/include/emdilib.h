@@ -180,7 +180,7 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
-    std::optional<MainWindowRecord> m_lastMWROpt;
+    //std::optional<MainWindowRecord> m_lastMWROpt;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);

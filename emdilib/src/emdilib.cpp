@@ -373,10 +373,15 @@ void Emdi::_updateDockFrames(const QMainWindow *mw) {
                                          "WHERE   attach = 'Dock' AND \n"
                                          "        mainWindowID = %1;").arg(mwr.ID);
 
-    const QString docWidgetStr = QString("SELECT  *                   \n"
-                                         "FROM    docWidgets          \n"
-                                         "WHERE   userType = '%1' AND \n"
-                                         "        docID    = %2;");
+    const QString docWidgetStr = QString("SELECT  docWidgets.*                       "
+                                         "FROM    docWidgets                         "
+                                         "JOIN    frames                             "
+                                         "ON      frames.docWidgetID = docWidgets.ID "
+                                         "WHERE   frames.mainWindowID = %1   AND     "
+                                         "        docWidgets.userType = '%2' AND     "
+                                         "        docWidgets.docID    = %3;          ").
+                                         arg(mwr.ID);
+
     auto dropt = _selectedDoc();
     auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
@@ -781,7 +786,6 @@ bool Emdi::popoutMdiFrame() {
     if (mwropt) {
         mwropt->ptr->activateWindow();
         mwropt->ptr->setFocus(Qt::MouseFocusReason);
-        //mwropt = _dbMainWindow();
     }
     else {
         newMainWindow();

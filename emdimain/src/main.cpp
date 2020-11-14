@@ -76,16 +76,15 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.duplicateMdiFrame();});
 
+    pb = new QPushButton("Popout MDIs");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.popoutMdiFrame();});
+
     pb = new QPushButton("Duplicate and popout Current MDI");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.duplicateAndPopoutMdiFrame();});
-
-    pb = new QPushButton("Popout MDIs");
-    vb->addWidget(pb);
-    QObject::connect(pb, &QPushButton::clicked, [&](){
-        emdi.popoutMdiFrame();
-    });
 
     pb = new QPushButton("Properties Dock");
     vb->addWidget(pb);
