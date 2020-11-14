@@ -362,7 +362,7 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     frame->show();
 
 }
-void Emdi::_updateDockFrames(const QMainWindow *mw) {
+void Emdi::_updateDockFrames(/*const QMainWindow *mw*/) {
     // Find the current MDI to get the current doc
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
@@ -566,6 +566,8 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     auto dropt = getRecord<DocRecord>("name", docName);
     assert(dropt);
 
+    // TODO: use mainWindow argument if not null
+    (void) mainWindow;
     // Make sure we have a mainWindow
     auto mwropt = _dbMainWindow();
     if (!mwropt)
@@ -613,11 +615,13 @@ void Emdi::duplicateMdiFrame() {
 void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) {
     // Look for existing dockframe, return if found, else create new one
 
+    // TODO: use mainWindow if not null
+    (void) mainWindow;
     // Make sure we have a mainWindow
     auto mwropt = getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
     if (!mwropt)
         newMainWindow();
-    auto mwr = *_dbMainWindow(/*mainWindow*/);
+    auto mwr = *_dbMainWindow();
 
     QString qsUserType = QString::fromStdString(userType);
     QString s = QString("SELECT *      \n"
@@ -640,7 +644,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         frame->setWindowTitle(qsUserType);
         frame->show();
     }
-    _updateDockFrames(mainWindow);
+    _updateDockFrames();
     }
 
 // Public Slots
