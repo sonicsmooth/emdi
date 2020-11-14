@@ -657,7 +657,6 @@ void Emdi::_onMainWindowClosed(QObject *obj) {
     _dbRemoveMainWindow(mw);
 }
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
-//    qDebug("_onMdiActivated");
     if (!sw) {
         // A weird bug in QT, I think.
         // At startup, when you click away from the main window after initializing
@@ -795,10 +794,16 @@ bool Emdi::popoutMdiFrame() {
         newMainWindow();
         mwropt = _dbMainWindow();
     }
+
+    // Put the subwindow in the new MDI area
     mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
     mdi->addSubWindow(fropt->ptr);
     fropt->ptr->show();
     fropt->ptr->activateWindow();
+
+    // Identify which userTypes are showing in old mainWindow
+
+
 
     _dbMoveMdiFrame(*fropt, *mwropt);
 
