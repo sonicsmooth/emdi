@@ -491,18 +491,19 @@ void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord &mwr) {
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
 }
 std::optional<MainWindowRecord> Emdi::_dbEmptyMainWindow() {
-    // Finds a mainWindow in db which does not have any frames
+    // Finds a mainWindow in db which does not have any MDI frames
     // Returns the one with highest selected value
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = "SELECT *                                    "
-                "FROM   mainWindows                          "
-                "EXCEPT                                      "
-                "SELECT mainWindows.*                        "
-                "FROM   mainWindows                          "
-                "JOIN   frames                               "
-                "ON     mainWindows.ID = frames.mainWindowID "
-                "ORDER  BY selected DESC                     "
-                "LIMIT  1;                                   ";
+    QString s = "SELECT *                                        "
+                "FROM   mainWindows                              "
+                "EXCEPT                                          "
+                "SELECT mainWindows.*                            "
+                "FROM   mainWindows                              "
+                "JOIN   frames                                   "
+                "ON     mainWindows.ID = frames.mainWindowID AND "
+                "       attach = 'MDI'                           "
+                "ORDER  BY selected DESC                         "
+                "LIMIT  1;                                       ";
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
     if (query.next())
@@ -664,7 +665,7 @@ void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
         // So evidently Qt thinks the MDI is not selected.  Attempts to distinguish
         // the erronous call from a legitimate call such as when the last MDI is
         // actually closed have been unsuccessful.
-        _clearDockFrames();
+        //_clearDockFrames();
     } else {
         _updateDockFrames();
     }
@@ -673,22 +674,13 @@ void Emdi::_onMdiClosed(QObject *sw) {
     // Do this in one BEGIN...COMMIT transaction
     // Need to break in the middle to grab the records of the affected
     // docs and docWidgets.
-    // dynamic_cast and qobject_cast don't work
-    qDebug("_onMdiClosed");
     QMdiSubWindow *mdiSubWindow = static_cast<QMdiSubWindow *>(sw);
-    FrameRecord fr = *getRecord<FrameRecord>("ptr", mdiSubWindow);
+    FrameRecord mdifr = *getRecord<FrameRecord>("ptr", mdiSubWindow);
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString docIDsToDelete = "SELECT ID from docs                       \n"
-                             "EXCEPT                                    \n"
-                             "SELECT DISTINCT docID                     \n"
-                             "FROM   docWidgets                         \n"
-                             "JOIN   frames                             \n"
-                             "ON     docWidgets.ID = frames.docWidgetID \n"
-                             "WHERE  frames.attach != 'Dock'";
     QStringList qsl = {QString("BEGIN TRANSACTION"),
                        QString("SAVEPOINT DEL1"),
-                       QString("DELETE FROM frames WHERE ID = %1;").arg(fr.ID),
-                       QString("DELETE FROM docWidgets WHERE ID = %1;").arg(fr.docWidgetID),
+                       QString("DELETE FROM frames WHERE ID = %1;").arg(mdifr.ID),
+                       QString("DELETE FROM docWidgets WHERE ID = %1;").arg(mdifr.docWidgetID),
                        QString("RELEASE DEL1")};
 
     // Do the first part of the transaction
@@ -698,8 +690,18 @@ void Emdi::_onMdiClosed(QObject *sw) {
         }
     }
 
-    // Read the docs, docWidgets to delete, close and delete after transaction
+    // At this point, the MDI and directly associated docWidget has been removed
+    // The next query selects orphan docs, ie docs without a display.  There
+    // should be exactly one, if any, and this is the one to close.  Also,
+    // delete and close any docWidgets associated with that doc.
     // TODO: Fix the bug when name is single quote
+    QString docIDsToDelete = "SELECT ID from docs                       \n"
+                             "EXCEPT                                    \n"
+                             "SELECT DISTINCT docID                     \n"
+                             "FROM   docWidgets                         \n"
+                             "JOIN   frames                             \n"
+                             "ON     docWidgets.ID = frames.docWidgetID \n"
+                             "WHERE  frames.attach != 'Dock'";
     QString docsToDeleteStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
     auto docsToDelete = getRecords<DocRecord>(docsToDeleteStr);
 
