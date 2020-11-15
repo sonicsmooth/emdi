@@ -675,12 +675,10 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
 // Public Slots
 void Emdi::_onMainWindowClosed(QObject *obj) {
     QMainWindow *mw = static_cast<QMainWindow *>(obj);
-    //QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
-    // This also has the desired effect of closing and removing
-    // the docWidgets and the docs from the db.
-    //mdi->closeAllSubWindows();
     // Uniformly close all mdiSubWindows and dockWidgets associated
     // with this mainwindow
+    // This also has the desired effect of closing and removing
+    // the docWidgets and the docs from the db.
     MainWindowRecord mwr = *getRecord<MainWindowRecord>("ptr", mw);
     QString s = QString("SELECT * FROM frames WHERE mainWindowID = %1").arg(mwr.ID);
     auto frs = getRecords<FrameRecord>(s);
@@ -689,11 +687,9 @@ void Emdi::_onMainWindowClosed(QObject *obj) {
     }
 
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QStringList qsl = {QString("DELETE FROM mainWindows WHERE ID = %1;").arg(mwr.ID),
-                       //QString("DELETE FROM frames WHERE mainWindowID = %1;").arg(mwr.ID)
-                      };
-    executeList(query, qsl, "Could not remove mainWindow or frames pointing to it", __LINE__);
-
+    s = QString("DELETE FROM mainWindows WHERE ID = %1;").arg(mwr.ID);
+    if (!query.exec(s))
+        fatalStr(querr("Could not remove mainWindow or frames pointing to it", query), __LINE__);
 }
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
     if (sw) {
