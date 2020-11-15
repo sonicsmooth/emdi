@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QDockWidget>
 #include <QInputDialog>
+#include <QMessageBox>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QPushButton>
@@ -41,7 +42,7 @@ template<typename T>
 void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     std::string docname = docName<T>();
     auto p = std::make_unique<T>(docname);
-    emdi.addDocument(p.get());
+    emdi.openDocument(p.get());
     emdi.newMdiFrame(docname, userType);
     docVec.push_back(std::move(p));
 }
@@ -70,6 +71,36 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.closeDocument();});
+
+    pb = new QPushButton("Close Doc by Name");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        bool ok;
+        QString text = QInputDialog::getText(nullptr,                   
+                        "Close document by name",  "Document name:",          
+                        QLineEdit::Normal, "", &ok);
+        if (ok && !text.isEmpty()) {
+            if (!emdi.closeDocument(text.toStdString())) {
+                QMessageBox msgBox;
+                msgBox.setText(QString("%1 cannot be found.").arg(text));
+                msgBox.setIcon(QMessageBox::Warning);
+                msgBox.exec();
+            }
+        }
+    });
+
+    pb = new QPushButton("Close Doc by ptr");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        if (!docVec.size())
+            return;
+        if (!emdi.closeDocument(docVec.front().get())) {
+            QMessageBox msgBox;
+            msgBox.setText("First doc cannot be found.");
+            msgBox.setIcon(QMessageBox::Warning);
+            msgBox.exec();
+        }
+    });
 
     pb = new QPushButton("Duplicate Current MDI");
     vb->addWidget(pb);
@@ -116,7 +147,7 @@ int main(int argc, char *argv[]) {
     emdi.newMainWindow();
     docVec_t docVec;
 
-    QObject::connect(&emdi, &Emdi::destroy, [&docVec](void *p) {
+    QObject::connect(&emdi, &Emdi::docClosed, [&docVec](void *p) {
         docVec.remove_if([&](const std::unique_ptr<Document> & up) {
             return up.get() == static_cast<Document *>(p);});});
     

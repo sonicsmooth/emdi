@@ -181,7 +181,8 @@ private:
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);
-    void _dbCloseDocument(const DocRecord &);
+    void _dbRemoveDocument(const DocRecord &);
+    bool _dbRemoveDocument(const Document *);
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow();
@@ -206,10 +207,10 @@ public:
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     void newMainWindow();
-    void addDocument(const Document *);
-    // removeDocument
-    // openDocument
-    void closeDocument(const std::string & = "");
+    void openDocument(const Document *);
+    bool closeDocument();
+    bool closeDocument(const std::string &);
+    bool closeDocument(Document *);
     void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
@@ -217,7 +218,7 @@ public:
     bool duplicateAndPopoutMdiFrame();
 
 signals:
-    void destroy(void *);
+    void docClosed(void *);
 public slots:
     void _onMainWindowClosed(QObject *);
     void _onMdiActivated(QMdiSubWindow *);
