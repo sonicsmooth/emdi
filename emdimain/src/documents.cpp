@@ -11,7 +11,7 @@ TxtDocument::TxtDocument(const std::string & name) :
 }
 TxtDocument::~TxtDocument() {
     done();
-//    qDebug() << QString("TxtDocument::~TxtDocument() (%1)").arg(m_name.c_str());
+    qDebug() << QString("TxtDocument::~TxtDocument() (%1)").arg(m_name.c_str());
 }
 void TxtDocument::init() {
     if (m_activeState)
@@ -54,7 +54,7 @@ SchDocument::SchDocument(const std::string & name) :
 }
 SchDocument::~SchDocument() {
     done();
-//    qDebug() << QString("SchDocument::~SchDocument() (%1)").arg(m_name.c_str());
+    qDebug() << QString("SchDocument::~SchDocument() (%1)").arg(m_name.c_str());
 }
 void SchDocument::init() {
     if (m_activeState)
