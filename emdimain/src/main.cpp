@@ -37,7 +37,6 @@ template<typename T> std::string docName() {
     return ss.str();
 }    
 
-
 template<typename T>
 void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     std::string docname = docName<T>();
@@ -46,10 +45,6 @@ void newDoc(std::string userType, Emdi & emdi, docVec_t & docVec) {
     emdi.newMdiFrame(docname, userType);
     docVec.push_back(std::move(p));
 }
-
-// Pop out
-// If solo, ignore
-// Else, find next window
 
 QWidget *buttonWindow(Emdi &, docVec_t &);
 QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {

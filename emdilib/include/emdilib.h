@@ -88,13 +88,13 @@ T qVal(const QSqlQuery & query, const QString & field) {
     return val;
 }
 
-QString limitstr(int);
-QString selectStr(const QString & table, const QString & field, unsigned int, int = -1);
-QString selectStr(const QString & table, const QString & field, const std::string &, int = -1);
-QString selectStr(const QString & table, const QString & field, const QMainWindow *, int = -1);
-QString selectStr(const QString & table, const QString & field, const QWidget *, int = -1);
-QString selectStr(const QString & table, const QString & field, const Document *, int = -1);
-QString selectStr(const QString & table, const QString & field, AttachmentType, int = -1);
+
+inline int argConvert(int v) {return v;}
+inline const char * argConvert(const std::string & v) {return v.c_str();}
+inline uint64_t argConvert(const QMainWindow *v) {return uint64_t(v);}
+inline uint64_t argConvert(const QWidget *v) {return uint64_t(v);}
+inline uint64_t argConvert(const Document *v) {return uint64_t(v);}
+inline QString argConvert(AttachmentType v) {return attach2str<QString>(v);}
 
 template<typename T> QString tableName() {return "undefined";}
 template<> inline QString tableName<DocRecord>() {return "docs";}
@@ -111,8 +111,10 @@ void executeList(QSqlQuery &, const QStringList &, const QString &, int);
 template<typename RET_T, typename ARG_T>
 std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = selectStr(tableName<RET_T>(), field, val, 1);
-    if (!query.exec(s))
+    QString s = QString("SELECT * FROM %1 WHERE %2 = :val LIMIT 1;").arg(tableName<RET_T>()).arg(field);
+    query.prepare(s);
+    query.bindValue(":val", argConvert(val));
+    if (!query.exec())
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(query.first())
         return query;
@@ -122,8 +124,10 @@ std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
 template<typename RET_T, typename ARG_T>
 std::vector<RET_T> getRecords(const QString & field, ARG_T val) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = selectStr(tableName<RET_T>(), field, val, -1);
-    if (!query.exec(s))
+    QString s = QString("SELECT * FROM %1 WHERE %2 = :val ;").arg(tableName<RET_T>()).arg(field);
+    query.prepare(s);
+    query.bindValue(":val", argConvert(val));
+    if (!query.exec())
         fatalStr(querr("Could not execute find record", query), __LINE__);
     std::vector<RET_T> vec;
     while(query.next())

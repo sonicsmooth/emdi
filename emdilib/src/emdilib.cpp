@@ -56,35 +56,6 @@ template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QStr
     QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
     return val;
 }
-QString limitstr(int limit) {
-    if (limit >= 0)
-        return QString(" LIMIT %1").arg(limit);
-    return "";
-}
-QString selectStr(const QString & table, const QString & field, unsigned int i, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
-            arg(table).arg(field).arg(i).arg(limitstr(limit));
-}
-QString selectStr(const QString & table, const QString & field, const std::string & str, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = '%3'%4;").
-            arg(table).arg(field).arg(str.c_str()).arg(limitstr(limit));
-}
-QString selectStr(const QString & table, const QString & field, const QMainWindow *ptr, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
-        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
-}
-QString selectStr(const QString & table, const QString & field, const QWidget *ptr, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
-        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
-}
-QString selectStr(const QString & table, const QString & field, const Document *ptr, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
-        arg(table).arg(field).arg(uint64_t(ptr)).arg(limitstr(limit));
-}
-QString selectStr(const QString & table, const QString & field, AttachmentType at, int limit) {
-    return QString("SELECT * FROM %1 WHERE \"%2\" = '%3'%4;").
-        arg(table).arg(field).arg(attach2str<QString>(at)).arg(limitstr(limit));
-}
 
 void executeList(QSqlQuery & query, const QStringList & qsl, const QString & errstr, int linenum) {
     for (QString qs: qsl)
@@ -736,7 +707,6 @@ void Emdi::_onMdiClosed(QObject *sw) {
     // The next query selects orphan docs, ie docs without a display.  There
     // should be exactly one, if any, and this is the one to close. Closing this
     // doc will trigger the other windows and records to close and be deleted.
-    // TODO: Fix the bug when name is single quote
     QString docIDsToClose = "SELECT ID from docs                       "
                             "EXCEPT                                    "
                             "SELECT DISTINCT docID                     "
