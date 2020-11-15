@@ -17,11 +17,6 @@
 #include <optional>
 
 
-
-
-
-
-
 enum class AttachmentType {ERROR, MDI, Dock};
 template<typename T>
 T attach2str(AttachmentType at) {
@@ -101,15 +96,18 @@ QString selectStr(const QString & table, const QString & field, const QWidget *,
 QString selectStr(const QString & table, const QString & field, const Document *, int = -1);
 QString selectStr(const QString & table, const QString & field, AttachmentType, int = -1);
 
-
 template<typename T> QString tableName() {return "undefined";}
 template<> inline QString tableName<DocRecord>() {return "docs";}
 template<> inline QString tableName<DocWidgetRecord>() {return "docWidgets";}
 template<> inline QString tableName<FrameRecord>() {return "frames";}
 template<> inline QString tableName<MainWindowRecord>() {return "mainWindows";}
 
+
+void executeList(QSqlQuery &, const QStringList &, const QString &, int);
+
 // TODO: Figure out getRecord and getRecords with 
 // TODO: name/value pairs of arbitrary type value
+// TODO: and variable arity
 template<typename RET_T, typename ARG_T>
 std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -180,7 +178,6 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
-    //std::optional<MainWindowRecord> m_lastMWROpt;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);

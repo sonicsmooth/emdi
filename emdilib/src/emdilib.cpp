@@ -61,10 +61,6 @@ QString limitstr(int limit) {
         return QString(" LIMIT %1").arg(limit);
     return "";
 }
-////QString selectStr(const QString & table, const QString & field, uint64_t i, int limit) {
-//    return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
-//            arg(table).arg(field).arg(i).arg(limitstr(limit));
-//}
 QString selectStr(const QString & table, const QString & field, unsigned int i, int limit) {
     return QString("SELECT * FROM %1 WHERE \"%2\" = %3%4;").
             arg(table).arg(field).arg(i).arg(limitstr(limit));
@@ -90,7 +86,11 @@ QString selectStr(const QString & table, const QString & field, AttachmentType a
         arg(table).arg(field).arg(attach2str<QString>(at)).arg(limitstr(limit));
 }
 
-
+void executeList(QSqlQuery & query, const QStringList & qsl, const QString & errstr, int linenum) {
+    for (QString qs: qsl)
+        if (!query.exec(qs))
+            fatalStr(querr(errstr, query), linenum);
+}
 
 DocRecord::DocRecord():
     ID(0),
@@ -260,9 +260,8 @@ void Emdi::_dbInitDb() {
                        "BEGIN                                                                         \n"
                        "    SELECT RAISE(ABORT, 'Cannot allow more than one type of userType in mainWindow'); \n"
                        "END;                                                                            "};
-    for (QString qs: qsl)
-        if (!query.exec(qs))
-            fatalStr(querr("Could not init", query), __LINE__);
+    executeList(query, qsl, "Could not init", __LINE__);
+
 }
 DocRecord Emdi::_dbAddDocument(const Document *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
@@ -274,20 +273,52 @@ DocRecord Emdi::_dbAddDocument(const Document *ptr) {
     return *getRecord<DocRecord>("ptr", ptr);
 }
 void Emdi::_dbCloseDocument(const DocRecord & dr) {
+    // This could be called originally from UI or from onMdiClosed
+    // Close all the MDI frames and docWidgets relating to this doc
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    // Close everything by closing all the MDI frames relating to this doc
-    // This won't work if MDI is an optional thing for a doc
-    QString s = QString("SELECT   *                                  \n"
-                        "FROM     frames                             \n"
-                        "JOIN     docWidgets                         \n"
-                        "ON       frames.docWidgetID = docWidgets.ID \n"
-                        "WHERE    docWidgets.docID = %1 AND          \n"
+    QString s = QString("SELECT   *                                  "
+                        "FROM     frames                             "
+                        "JOIN     docWidgets                         "
+                        "ON       frames.docWidgetID = docWidgets.ID "
+                        "WHERE    docWidgets.docID = %1 AND          "
                         "         frames.attach = 'MDI';             ").
                         arg(dr.ID);
+
+    // If this fn was called from onMdiClosed, then it must be because
+    // it was the last mdiSubwindow, in which case the below should be
+    // empty, and the docWidget associated with that mdiSubwindow will
+    // be deleted automatically.  This loop will also delete all the
+    // existing docWidgets which are currently associated with an
+    // mdiSubwindow.  The subWidgets associated with Docks need to be
+    // deleted.
     auto frs = getRecords<FrameRecord>(s);
     for (const FrameRecord & fr : frs) {
         fr.ptr->close();
     }
+
+    // SPACE to find docWidgets attached to Docks, then remove them from Dock
+    // For now, let's see if this works.  We are risking deleting the pointer
+    // to docWidgets which are currently the children of active/exposed Docks.
+    // If this fails, then we need to break this up and deal with those separately.
+    s = QString("SELECT   docWidgets.*                       "
+                "FROM     docWidgets                         "
+                "JOIN     frames                             "
+                "ON       docWidgets.ID = frames.docWidgetID "
+                "WHERE    docWidgets.docID = %1 AND          "
+                "         frames.attach = 'Dock';            ").
+                arg(dr.ID);
+    auto dwrs = getRecords<DocWidgetRecord>(s);
+
+    // Remove all the above Docked docWidgets and the main doc.
+    auto qsl = QStringList({QString("DELETE FROM docWidgets WHERE docID = %1;").arg(dr.ID),
+                            QString("DELETE FROM docs WHERE ID = %1;").arg(dr.ID)});
+    executeList(query, qsl, "Could not delete frame and docWidget", __LINE__);
+
+    // Destroy the docWidgets, close the doc, and notify listeners
+    for (const DocWidgetRecord & dwr : dwrs)
+        delete dwr.ptr;
+    dr.ptr->done();
+    emit destroy(dr.ptr);
 }
 MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     // Add a main window to the database
@@ -299,12 +330,6 @@ MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
     if (!query.exec(s))
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", ptr);
-}
-void Emdi::_dbRemoveMainWindow(const QMainWindow *mw) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString("DELETE FROM mainWindows WHERE ptr = %1;").arg(uint64_t(mw));
-    if (!query.exec(s))
-        fatalStr(querr("Could not execute remove mainWindow", query), __LINE__);
 }
 std::optional<MainWindowRecord> Emdi::_dbMainWindow() {
     // Return most recently selected mainWindow
@@ -368,9 +393,9 @@ void Emdi::_updateDockFrames(/*const QMainWindow *mw*/) {
     // which also has the same userType and belongs to the given DocRecord
 
     auto mwr = *_dbMainWindow(/*mw*/);
-    const QString dockFrameStr = QString("SELECT  *                   \n"
-                                         "FROM    frames              \n"
-                                         "WHERE   attach = 'Dock' AND \n"
+    const QString dockFrameStr = QString("SELECT  *                   "
+                                         "FROM    frames              "
+                                         "WHERE   attach = 'Dock' AND "
                                          "        mainWindowID = %1;").arg(mwr.ID);
 
     const QString docWidgetStr = QString("SELECT  docWidgets.*                       "
@@ -555,7 +580,6 @@ void Emdi::closeDocument(const std::string & name) {
         qDebug() << "Can't find document " << name.c_str();
     }
 }
-
 void Emdi::newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
     // Always new MDI view and new DocWidget attaching to doc given by docName.
     // docName is critical -- error if not found or empty
@@ -651,82 +675,77 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
 // Public Slots
 void Emdi::_onMainWindowClosed(QObject *obj) {
     QMainWindow *mw = static_cast<QMainWindow *>(obj);
-    QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
+    //QMdiArea *mdi = dynamic_cast<QMdiArea *>(mw->centralWidget());
     // This also has the desired effect of closing and removing
     // the docWidgets and the docs from the db.
-    mdi->closeAllSubWindows();
-    _dbRemoveMainWindow(mw);
+    //mdi->closeAllSubWindows();
+    // Uniformly close all mdiSubWindows and dockWidgets associated
+    // with this mainwindow
+    MainWindowRecord mwr = *getRecord<MainWindowRecord>("ptr", mw);
+    QString s = QString("SELECT * FROM frames WHERE mainWindowID = %1").arg(mwr.ID);
+    auto frs = getRecords<FrameRecord>(s);
+    for (const FrameRecord & fr : frs) {
+        fr.ptr->close();
+    }
+
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QStringList qsl = {QString("DELETE FROM mainWindows WHERE ID = %1;").arg(mwr.ID),
+                       //QString("DELETE FROM frames WHERE mainWindowID = %1;").arg(mwr.ID)
+                      };
+    executeList(query, qsl, "Could not remove mainWindow or frames pointing to it", __LINE__);
+
 }
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
-    if (!sw) {
-        // A weird bug in QT, I think.
-        // At startup, when you click away from the main window after initializing
-        // an MDI, but before clicking on it, this fn gets called with sw == nullptr.
-        // So evidently Qt thinks the MDI is not selected.  Attempts to distinguish
-        // the erronous call from a legitimate call such as when the last MDI is
-        // actually closed have been unsuccessful.
-        //_clearDockFrames();
-    } else {
+    if (sw) {
         _updateDockFrames();
     }
 }
 void Emdi::_onMdiClosed(QObject *sw) {
-    // Do this in one BEGIN...COMMIT transaction
-    // Need to break in the middle to grab the records of the affected
-    // docs and docWidgets.
+    // Just remove the mdiSubWindow and associated docWidgets from db
+    // Their destruction is handled automatically.  Also close mainWindow
+    // if it has no more mdiSubWindows, but only if it's not the last one.
     QMdiSubWindow *mdiSubWindow = static_cast<QMdiSubWindow *>(sw);
     FrameRecord mdifr = *getRecord<FrameRecord>("ptr", mdiSubWindow);
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QStringList qsl = {QString("BEGIN TRANSACTION"),
-                       QString("SAVEPOINT DEL1"),
-                       QString("DELETE FROM frames WHERE ID = %1;").arg(mdifr.ID),
-                       QString("DELETE FROM docWidgets WHERE ID = %1;").arg(mdifr.docWidgetID),
-                       QString("RELEASE DEL1")};
-
-    // Do the first part of the transaction
-    for (QString qs: qsl) {
-        if (!query.exec(qs)) {
-            fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
-        }
-    }
+    QStringList qsl = {QString("DELETE FROM frames WHERE ID = %1;").arg(mdifr.ID),
+                       QString("DELETE FROM docWidgets WHERE ID = %1;").arg(mdifr.docWidgetID)};
+    executeList(query, qsl, "Could not delete frame and docWidget", __LINE__);
 
     // At this point, the MDI and directly associated docWidget has been removed
     // The next query selects orphan docs, ie docs without a display.  There
-    // should be exactly one, if any, and this is the one to close.  Also,
-    // delete and close any docWidgets associated with that doc.
+    // should be exactly one, if any, and this is the one to close. Closing this
+    // doc will trigger the other windows and records to close and be deleted.
     // TODO: Fix the bug when name is single quote
-    QString docIDsToDelete = "SELECT ID from docs                       \n"
-                             "EXCEPT                                    \n"
-                             "SELECT DISTINCT docID                     \n"
-                             "FROM   docWidgets                         \n"
-                             "JOIN   frames                             \n"
-                             "ON     docWidgets.ID = frames.docWidgetID \n"
-                             "WHERE  frames.attach != 'Dock'";
+    QString docIDsToDelete = "SELECT ID from docs                       "
+                             "EXCEPT                                    "
+                             "SELECT DISTINCT docID                     "
+                             "FROM   docWidgets                         "
+                             "JOIN   frames                             "
+                             "ON     docWidgets.ID = frames.docWidgetID "
+                             "WHERE  frames.attach != 'Dock'            ";
     QString docsToDeleteStr = QString("SELECT * FROM docs WHERE ID = (%1);").arg(docIDsToDelete);
     auto docsToDelete = getRecords<DocRecord>(docsToDeleteStr);
-
-    // Finish the transaction
-    qsl = QStringList({QString("DELETE FROM docWidgets WHERE docID = (%1);").arg(docIDsToDelete),
-                       QString("DELETE FROM docs WHERE ID = (%1);").arg(docIDsToDelete),
-                       QString("COMMIT;")});
-    for (QString qs: qsl) {
-       if (!query.exec(qs)) {
-           fatalStr(querr("Could not delete frame and docWidget", query), __LINE__);
-       }
-    }
-
-    // There should be exactly zero or one docs to delete
     assert(docsToDelete.size() <= 1);
-    if (docsToDelete.size()) {
-        docsToDelete[0].ptr->done();
-        emit destroy(docsToDelete[0].ptr);
+    if (docsToDelete.size())
+        _dbCloseDocument(docsToDelete[0]);
+
+    // Close highest priority empty mainWindow, but only
+    // if there is another mainWindow
+    auto emwr = _dbEmptyMainWindow();
+    auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows");
+    if(emwr && mwrs.size() > 1) {
+        emwr->ptr->close();
     }
+
+
+
 }
 void Emdi::_onDockClosed(QObject *sw) {
-    // this frame -> setWidget to nullptr Find this frame's userType delete all
-    // docWidgets in this window with this userType
+    // this frame -> setWidget to nullptr
+    // Find this frame's userType
+    // delete all docWidgets in this window with this userType
     assert(sw);
-    QDockWidget *frame = static_cast<QDockWidget *>(sw); // dynamic_cast didn't work
+    QDockWidget *frame = static_cast<QDockWidget *>(sw);
     auto fr = getRecord<FrameRecord>("ptr", frame);
     assert(fr);
     auto dwrs = getRecords<DocWidgetRecord>("userType", fr->userType);
@@ -734,14 +753,13 @@ void Emdi::_onDockClosed(QObject *sw) {
     QString s;
     if (dwrs.size()) {
         s = QString("DELETE FROM docWidgets                      \n"
-                    "WHERE EXISTS                                \n"
-                    " (SELECT *                                  \n"
+                    "WHERE ID =                                  \n"
+                    " (SELECT docWidgets.ID                      \n"
                     "  FROM   docWidgets                         \n"
                     "  JOIN   frames                             \n"
                     "  ON     docWidgets.ID = frames.docWidgetID \n"
-                    "  WHERE  docWidgets.userType = '%1');         ").
+                    "  WHERE  docWidgets.userType = '%1');       \n").
                             arg(fr->userType.c_str());
-        qDebug() << s.toLatin1();
         if (!query.exec(s)) {
             fatalStr(querr("Could not delete docWidgets", query), __LINE__);
         }
