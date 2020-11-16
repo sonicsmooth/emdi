@@ -203,6 +203,7 @@ private:
     void _dbIncrMainWindow(unsigned int);
     void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
+    std::vector<std::string> _dbFrameDockUserTypes(const MainWindowRecord &);
 
 public:
     Emdi();
