@@ -358,6 +358,7 @@ void Emdi::_newMdiFrame(const DocWidgetRecord &dwr, const std::string & userType
     frame->show();
 
 }
+// TODO: NULLIFY db entry when Dock doesn't have a docWidget
 void Emdi::_updateDockFrames(/*const QMainWindow *mw*/) {
     // Find the current MDI to get the current doc
     // For each Dock frame, attach the first (and hopefully only) docWidget
@@ -372,31 +373,62 @@ void Emdi::_updateDockFrames(/*const QMainWindow *mw*/) {
                                          "        mainWindowID = %1;").arg(mwr.ID);
 
     // Select docWidgets in this mainWindow, with given userType
-    const QString docWidgetStr = QString("SELECT  docWidgets.*                       "
-                                         "FROM    docWidgets                         "
-                                         "JOIN    frames                             "
-                                         "ON      frames.userType = docWidgets.userType "
-                                         "WHERE   frames.ID        = %1  AND       "
-                                         "        docWidgets.docID = %2           ");
+    // const QString docWidgetStr = QString("SELECT  docWidgets.*                          \n"
+    //                                      "FROM    docWidgets                            \n"
+    //                                      "JOIN    frames                                \n"
+    //                                      "ON      docWidgets.userType = frames.userType \n"
+    //                                      "WHERE   docWidgets.docID = %1 AND             \n"
+    //                                      "        frames.ID        = %2;                \n");
 
+    // const QString docWidgetStr = QString("SELECT  dw1.*                               \n"
+    //                                      "FROM    docWidgets dw1                       \n"
+    //                                      "JOIN    frames fr_sel                        \n"
+    //                                      "ON      dw1.ID = fr_sel.docWidgetID          \n" // finds selected docWidget"
+    //                                      "JOIN    docWidgets dw2                       \n"
+    //                                      "ON      dw1.docID = dw2.docID                \n" // finds all docWidgets with same docID"
+    //                                      "JOIN    frames fr_dock                       \n"
+    //                                      "ON      dw2.userType = fr_dock.userType      \n" // finds all of these with same userType as dockFrame"
+    //                                      "WHERE   fr_sel.mainWindowID = fr_dock.mainWindowID AND \n"
+    //                                      "        fr_sel.ID = %1 AND                   \n"
+    //                                      "        fr_dock.ID = %2;                     \n");//.
+    //                                     //arg(mwr.ID);
+
+    const QString docWidgetStr = QString("SELECT  dw2.*                          "
+                                         "FROM   docWidgets dw2                  "
+                                         "JOIN   (SELECT dwi.*,fr_sel.mainWindowID as frselmwid                   "
+                                         "        FROM docWidgets dwi            "
+                                         "        JOIN frames fr_sel             "
+                                         "        ON dwi.ID = fr_sel.docWidgetID "
+                                         "        WHERE fr_sel.ID = %1 ) dw1     "
+                                         "ON    dw1.docID = dw2.docID            "
+                                         "JOIN  frames fr_dock                   " 
+                                         "ON    dw2.userType = fr_dock.userType  "
+                                         "WHERE fr_dock.ID = %2 AND"
+                                         "      fr_dock.mainWindowID = dw1.frselmwid;                  ");
+
+
+    static int i=0;
     auto dropt = _selectedDoc();
+    auto fropt = _selectedMdiFrame();
+    //if (!dropt) return;
     auto frs = getRecords<FrameRecord>(dockFrameStr);
     for (FrameRecord fr : frs) {
         QWidget *ptr = nullptr;
         if (dropt) {
-            // See if there is a DocWidget which shares userType as loop Dock Frame
-            // and the selected doc.
-            QString dws = docWidgetStr.arg(fr.ID).arg(dropt->ID);
+            // See if there is a DocWidget with same userType as DockFrame,
+            // and points to same doc as MDIFrame
+            QString dws = docWidgetStr.arg(fropt->ID).arg(fr.ID);
+            qDebug().noquote() << dws;
             auto dwropt = getRecord<DocWidgetRecord>(dws);
             if (dwropt) { // attach if already exists
-                qDebug() << "update: dock widget " << dwropt->ID << " belongs in frame " << fr.ID;
+                qDebug() << i++ << "Exists, attaching docWidget" << dwropt->ID << "to frame" << fr.ID;
                 _dbUpdateFrameWithDocWidgetID(fr.ID, dwropt->ID);
                 ptr = dwropt->ptr;
             } else { // attempt to create new docWidget
                 QWidget *docWidget = dropt->ptr->newView(fr.userType);
                 if(docWidget) { // New view is valid
-                    qDebug() << "Adding new docWidget";
                     DocWidgetRecord dwr = _dbAddDocWidget(docWidget, fr.userType, dropt->ID);
+                    qDebug() << i++ << "Added new docWidget" << dwr.ID << "to be held by Dock frame" <<  fr.ID;
                     _dbUpdateFrameWithDocWidgetID(fr.ID, dwr.ID);
                     ptr = dwr.ptr;
                 }
@@ -787,7 +819,6 @@ void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
         _dbIncrMainWindow(mwropt->ID);
     }
 }
-// TODO: NULLIFY db entry when Dock doesn't have a docWidget
 bool Emdi::popoutMdiFrame() {
     // Return false if there are fewer than 2 MDI frame in current window.
     // Otherwise, return true after making a new window and moving
