@@ -46,6 +46,7 @@ struct DocWidgetRecord {
     unsigned int ID;
     QWidget *ptr;
     unsigned int docID;
+    unsigned int frameID;
     DocWidgetRecord();
     DocWidgetRecord(const QSqlQuery &);
     DocWidgetRecord & operator=(const DocWidgetRecord &);
@@ -190,10 +191,10 @@ private:
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow();
-    DocWidgetRecord _dbAddDocWidget(const QWidget *, const std::string &, unsigned int);
-    FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, int, unsigned int);
-    FrameRecord _dbUpdateFrameWithDocWidgetID(unsigned int, unsigned int);
-    void _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
+    DocWidgetRecord _dbAddDocWidget(const QWidget *, unsigned int);
+    FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int);
+    FrameRecord _dbAttachDocWidgetToFrame(const DocWidgetRecord &, const FrameRecord &);
+    FrameRecord _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
     void _updateDockFrames(/*const QMainWindow * = nullptr*/);
     void _clearDockFrames();
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
