@@ -372,7 +372,8 @@ void Emdi::_updateDockFrames() {
                            "        mainWindowID = %1;").
             arg(_dbMainWindow()->ID);
 
-    // Find correct docWidget
+    // Find correct docWidget based on loop Dock frame and
+    // selected MDI Frame
     const QString
     docWidgetStr = "SELECT dw2.*                       "
                    "FROM   docWidgets dw1              "
@@ -385,7 +386,7 @@ void Emdi::_updateDockFrames() {
 
     auto dropt = _selectedDoc();
     auto fropt = _selectedMdiFrame();
-    assert(dropt);
+    if (!dropt) return;
     assert(fropt);
     for (FrameRecord fr : getRecords<FrameRecord>(dockFrameStr)) {
         QWidget *ptr = nullptr;
@@ -512,11 +513,21 @@ std::optional<MainWindowRecord> Emdi::_dbEmptyMainWindow() {
     else
         return std::nullopt;
 }
-std::vector<std::string> Emdi::_dbFrameDockUserTypes(const MainWindowRecord &mwr) {
+std::vector<std::string> Emdi::_dbDockFrameUserTypes(const FrameRecord & fr) {
     // Return list of usertypes associated with this mainwindow
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString("SELECT userType FROM frames WHERE mainWindowID=%1 AND attach='Dock'").
-                arg(mwr.ID);
+    QString s = QString("SELECT fr_dock.userType            \n"
+                        "FROM   frames fr_sel               \n"
+                        "JOIN   docWidgets dw1              \n"
+                        "ON     fr_sel.docWidgetID = dw1.ID \n"
+                        "JOIN   docWidgets dw2              \n"
+                        "ON     dw1.docID = dw2.docID       \n"
+                        "JOIN   frames fr_dock              \n"
+                        "ON     dw2.frameID = fr_dock.ID    \n"
+                        "WHERE  fr_sel.ID = %1 AND          \n"
+                        "       fr_dock.attach = 'Dock';    \n").
+                        arg(fr.ID);
+
     if (!query.exec(s))
         fatalStr(querr("Could not find userTypes", query), __LINE__);
     std::vector<std::string> ret;
@@ -785,8 +796,8 @@ void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
     }
 }
 bool Emdi::popoutMdiFrame() {
-    // Return false if there are fewer than 2 MDI frame in current window.
-    // Otherwise, return true after making a new window and moving
+    // Return false if there are fewer than 2 MDI frames in current window.
+    // Otherwise, return true after making a new mainWindow and moving
     // currently selected MDI frame to it
     if (_dbCountMdiFrames() < 2)
         return false;
@@ -815,31 +826,16 @@ bool Emdi::popoutMdiFrame() {
     mdi->addSubWindow(fropt->ptr);
     fropt->ptr->show();
     fropt->ptr->activateWindow();
+    _dbMoveMdiFrame(*fropt, *mwropt);
 
     // Identify which userTypes are showing in old mainWindow for this doc
-    // this MDI->docWidgetID->docWidgets.docID
-
-    // SELECT dw2.userType
-    // FROM   docWidgets as dw1
-    // JOIN   frames as fr1
-    // ON     dw1.ID = fr1.docWidgetID
-    // JOIN   docWidgets as dw2
-    // ON     dw1.docID = dw2.docID
-    // JOIN   frames as fr2
-    // ON     dw2.ID = fr2.docWidgetID
-    // WHERE   fr1.ID = fropt->ID and
-    //         fr2.ID = 'Dock'
-    
-
-
-    std::vector<std::string> oldUserTypes = _dbFrameDockUserTypes(*oldmwropt);
-    for (const std::string & ut : oldUserTypes) {
-        qDebug() << ut.c_str();
+    // Show those userTypes in new window
+    std::vector<std::string> existingUserTypes = _dbDockFrameUserTypes(*fropt);
+    for (const std::string & ut : existingUserTypes) {
+        showDockFrame(ut);
+        //qDebug() << ut.c_str();
     }
 
-
-
-    _dbMoveMdiFrame(*fropt, *mwropt);
 
     return true;
 }
