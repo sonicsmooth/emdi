@@ -190,17 +190,18 @@ private:
     bool _dbRemoveDocument(const Document *);
     MainWindowRecord _dbAddMainWindow(const QMainWindow *);
     void _dbRemoveMainWindow(const QMainWindow *);
-    std::optional<MainWindowRecord> _dbMainWindow();
+    std::optional<MainWindowRecord> _dbMainWindow(unsigned int = 0);
     DocWidgetRecord _dbAddDocWidget(const QWidget *, unsigned int);
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int);
     FrameRecord _dbAttachDocWidgetToFrame(const DocWidgetRecord &, const FrameRecord &);
     FrameRecord _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
-    void _updateDockFrames(/*const QMainWindow * = nullptr*/);
+    void _updateDockFrames();
     void _clearDockFrames();
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
     std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
     std::optional<DocRecord> _selectedDoc(const QMainWindow * = nullptr);
     unsigned int _dbCountMdiFrames();
+    unsigned int _dbCountMainWindows();
     void _dbIncrMainWindow(unsigned int);
     void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
@@ -222,6 +223,7 @@ public:
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
+    bool moveMdiToPrevious();
 
 signals:
     void docClosed(void *);

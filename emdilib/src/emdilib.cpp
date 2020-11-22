@@ -306,10 +306,12 @@ MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
         fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", ptr);
 }
-std::optional<MainWindowRecord> Emdi::_dbMainWindow() {
-    // Return most recently selected mainWindow
+std::optional<MainWindowRecord> Emdi::_dbMainWindow(unsigned int offset) {
+    // Return most recently selected mainWindow, or if offset > 0, that row
     // or nullopt if nothing found
-    QString s = "SELECT * FROM mainWindows ORDER BY \"selected\" DESC LIMIT 1;";
+    QString s = QString("SELECT * FROM mainWindows "
+                        "ORDER BY selected DESC    "
+                        "LIMIT 1 OFFSET %2;").arg(offset);
     return getRecord<MainWindowRecord>(s);
 }
 DocWidgetRecord Emdi::_dbAddDocWidget(const QWidget *ptr, unsigned int docID) {
@@ -465,6 +467,14 @@ unsigned int Emdi::_dbCountMdiFrames() {
                         "       attach = 'MDI'").arg(mwID);
     if (!query.exec(s))
         fatalStr(querr("Could not count MDI frames", query), __LINE__);
+    query.next();
+    return qVal<unsigned int>(query);
+}
+unsigned int Emdi::_dbCountMainWindows() {
+    // Return how many mainWindows there are
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    if (!query.exec("SELECT count(ID) FROM mainWindows;"))
+        fatalStr(querr("Could not count mainWindows", query), __LINE__);
     query.next();
     return qVal<unsigned int>(query);
 }
@@ -821,6 +831,7 @@ bool Emdi::popoutMdiFrame() {
         mwropt = _dbMainWindow();
     }
 
+    // TODO: put this in separate function
     // Put the subwindow in the new MDI area
     mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
     mdi->addSubWindow(fropt->ptr);
@@ -830,16 +841,37 @@ bool Emdi::popoutMdiFrame() {
 
     // Identify which userTypes are showing in old mainWindow for this doc
     // Show those userTypes in new window
-    std::vector<std::string> existingUserTypes = _dbDockFrameUserTypes(*fropt);
-    for (const std::string & ut : existingUserTypes) {
+    for (const std::string & ut : _dbDockFrameUserTypes(*fropt)) {
         showDockFrame(ut);
-        //qDebug() << ut.c_str();
     }
-
-
     return true;
 }
 bool Emdi::duplicateAndPopoutMdiFrame() {
     duplicateMdiFrame();
     return popoutMdiFrame();
+}
+bool Emdi::moveMdiToPrevious() {
+    // Moves current MDI frame to previously selected mainWindow
+    // Fails and returns false if there is only one mainWindow
+    if (_dbCountMainWindows() < 2)
+        return false;
+    auto fropt = _selectedMdiFrame();
+    if (!fropt)
+        return false;
+    auto mwropt = _dbMainWindow();
+    auto lmwropt = _dbMainWindow(1);
+    // TODO: put this in separate function as above
+    QMdiArea *mdi = static_cast<QMdiArea *>(lmwropt->ptr->centralWidget());
+    mdi->addSubWindow(fropt->ptr);
+    fropt->ptr->show();
+    fropt->ptr->activateWindow();
+    _dbMoveMdiFrame(*fropt, *lmwropt);
+    // TODO: this is a place where updateDockFrames could benefit
+    // TODO: from taking a mainWindows argument
+    mwropt->ptr->activateWindow();
+    mwropt->ptr->setFocus(Qt::MouseFocusReason);
+    _updateDockFrames();
+    lmwropt->ptr->activateWindow();
+    lmwropt->ptr->setFocus(Qt::MouseFocusReason);
+    _updateDockFrames();
 }
