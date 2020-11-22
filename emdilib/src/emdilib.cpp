@@ -359,29 +359,29 @@ FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & 
     frame->show();
     return fr;
 }
-// TODO: NULLIFY db entry when Dock doesn't have a docWidget
+
 void Emdi::_updateDockFrames() {
     // Find the current MDI to get the current doc
-    // For each Dock frame, attach the first (and hopefully only) docWidget
-    // which also has the same userType and belongs to the given DocRecord
-
-    auto mwr = *_dbMainWindow();
+    // For each Dock frame, attach the associated docWidget
 
     // Select all Dock frames in this window
     const QString
     dockFrameStr = QString("SELECT  *                   "
                            "FROM    frames              "
                            "WHERE   attach = 'Dock' AND "
-                           "        mainWindowID = %1;").arg(mwr.ID);
+                           "        mainWindowID = %1;").
+            arg(_dbMainWindow()->ID);
+
+    // Find correct docWidget
     const QString
-    docWidgetStr = "SELECT dw2.*                   \n"
-                   "FROM  docWidgets dw1           \n"
-                   "JOIN  frames fr_sel            \n"
-                   "ON dw1.ID = fr_sel.docWidgetID \n"
-                   "JOIN docWidgets dw2            \n"
-                   "ON dw1.docID = dw2.docID       \n"
-                   "WHERE dw2.frameID = %1 AND     \n"
-                   "      fr_sel.ID = %2;           ";
+    docWidgetStr = "SELECT dw2.*                       "
+                   "FROM   docWidgets dw1              "
+                   "JOIN   frames fr_sel               "
+                   "ON     dw1.ID = fr_sel.docWidgetID "
+                   "JOIN   docWidgets dw2              "
+                   "ON     dw1.docID = dw2.docID       "
+                   "WHERE  dw2.frameID = %1 AND        "
+                   "       fr_sel.ID = %2;             ";
 
     auto dropt = _selectedDoc();
     auto fropt = _selectedMdiFrame();
@@ -389,8 +389,7 @@ void Emdi::_updateDockFrames() {
     assert(fropt);
     for (FrameRecord fr : getRecords<FrameRecord>(dockFrameStr)) {
         QWidget *ptr = nullptr;
-        // See if there is a DocWidget with same userType as DockFrame,
-        // and points to same doc as MDIFrame
+        // See if there is DocWidget that belongs to this MDI Frame
         QString dws = docWidgetStr.arg(fr.ID).arg(fropt->ID);
         auto dwropt = getRecord<DocWidgetRecord>(dws);
         if (dwropt) { // attach if already exists
