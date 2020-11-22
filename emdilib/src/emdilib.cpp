@@ -360,56 +360,48 @@ FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & 
     return fr;
 }
 // TODO: NULLIFY db entry when Dock doesn't have a docWidget
-void Emdi::_updateDockFrames(/*const QMainWindow *mw*/) {
+void Emdi::_updateDockFrames() {
     // Find the current MDI to get the current doc
     // For each Dock frame, attach the first (and hopefully only) docWidget
     // which also has the same userType and belongs to the given DocRecord
 
-    auto mwr = *_dbMainWindow(/*mw*/);
+    auto mwr = *_dbMainWindow();
 
     // Select all Dock frames in this window
-    const QString dockFrameStr = QString("SELECT  *                   "
-                                         "FROM    frames              "
-                                         "WHERE   attach = 'Dock' AND "
-                                         "        mainWindowID = %1;").arg(mwr.ID);
+    const QString
+    dockFrameStr = QString("SELECT  *                   "
+                           "FROM    frames              "
+                           "WHERE   attach = 'Dock' AND "
+                           "        mainWindowID = %1;").arg(mwr.ID);
+    const QString
+    docWidgetStr = "SELECT dw2.*                   \n"
+                   "FROM  docWidgets dw1           \n"
+                   "JOIN  frames fr_sel            \n"
+                   "ON dw1.ID = fr_sel.docWidgetID \n"
+                   "JOIN docWidgets dw2            \n"
+                   "ON dw1.docID = dw2.docID       \n"
+                   "WHERE dw2.frameID = %1 AND     \n"
+                   "      fr_sel.ID = %2;           ";
 
-    
     auto dropt = _selectedDoc();
     auto fropt = _selectedMdiFrame();
-    if(!fropt) {
-        qDebug() << "No MDI frame selected";
-    }
-
-    const QString 
-    docWidgetStr = QString("SELECT dw2.*                   \n"
-                           "FROM  docWidgets dw1           \n"
-                           "JOIN  frames fr_sel            \n"
-                           "ON dw1.ID = fr_sel.docWidgetID \n"
-                           "JOIN docWidgets dw2            \n"
-                           "ON dw1.docID = dw2.docID       \n"
-                           "WHERE dw2.frameID = %1 AND     \n"
-                           "      fr_sel.ID = %2;           ")    ;
-
-    if (!dropt) return;
-    auto frs = getRecords<FrameRecord>(dockFrameStr);
-    for (FrameRecord fr : frs) {
+    assert(dropt);
+    assert(fropt);
+    for (FrameRecord fr : getRecords<FrameRecord>(dockFrameStr)) {
         QWidget *ptr = nullptr;
-        if (dropt) {
-            // See if there is a DocWidget with same userType as DockFrame,
-            // and points to same doc as MDIFrame
-            QString dws = docWidgetStr.arg(fr.ID).arg(fropt->ID);
-            qDebug().noquote() << dws;
-            auto dwropt = getRecord<DocWidgetRecord>(dws);
-            if (dwropt) { // attach if already exists
-                _dbAttachDocWidgetToFrame(*dwropt, fr);
-                ptr = dwropt->ptr;
-            } else { // attempt to create new docWidget
-                QWidget *docWidget = dropt->ptr->newView(fr.userType);
-                if(docWidget) { // New view is valid
-                    DocWidgetRecord dwr = _dbAddDocWidget(docWidget, dropt->ID);
-                    _dbAttachDocWidgetToFrame(dwr, fr);
-                    ptr = dwr.ptr;
-                }
+        // See if there is a DocWidget with same userType as DockFrame,
+        // and points to same doc as MDIFrame
+        QString dws = docWidgetStr.arg(fr.ID).arg(fropt->ID);
+        auto dwropt = getRecord<DocWidgetRecord>(dws);
+        if (dwropt) { // attach if already exists
+            _dbAttachDocWidgetToFrame(*dwropt, fr);
+            ptr = dwropt->ptr;
+        } else { // attempt to create new docWidget
+            QWidget *docWidget = dropt->ptr->newView(fr.userType);
+            if(docWidget) { // New view is valid
+                DocWidgetRecord dwr = _dbAddDocWidget(docWidget, dropt->ID);
+                _dbAttachDocWidgetToFrame(dwr, fr);
+                ptr = dwr.ptr;
             }
         }
         static_cast<QDockWidget *>(fr.ptr)->setWidget(ptr);
