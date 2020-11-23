@@ -127,6 +127,11 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     QObject::connect(pb, &QPushButton::clicked, [&](){
         emdi.showDockFrame("Hierarchy");});
 
+    pb = new QPushButton("Quit");
+    vb->addWidget(pb);
+    QObject::connect(pb, &QPushButton::clicked, [&](){
+        qApp->quit();});
+
     vb->addStretch();
     w->setLayout(vb);
     return w;

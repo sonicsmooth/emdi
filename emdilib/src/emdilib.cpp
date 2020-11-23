@@ -362,17 +362,47 @@ FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & 
     return fr;
 }
 
-void Emdi::_updateDockFrames() {
+void Emdi::_updateDockFrames(std::optional<MainWindowRecord> mwropt) {
     // Find the current MDI to get the current doc
     // For each Dock frame, attach the associated docWidget
+    std::optional<DocRecord> dropt;
+    std::optional<FrameRecord> fropt;
 
-    // Select all Dock frames in this window
+    if (mwropt) {
+        QMdiArea *mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
+        QWidget *sw = mdi->activeSubWindow();
+        if (!sw) {
+            _clearDockFrames();
+            //qDebug() << "No active subWindow";
+            return;
+        }
+        fropt = getRecord<FrameRecord>("ptr", sw);
+        dropt = getRecord<DocRecord>(
+                    QString("SELECT docs.*                              "
+                            "FROM   docs                                "
+                            "JOIN   docWidgets                          "
+                            "ON     docs.ID = docWidgets.docID          "
+                            "JOIN   frames                              "
+                            "ON     docWidgets.ID = frames.docWidgetID  "
+                            "WHERE  frames.ID = %1                      ").
+                            arg(fropt->ID));
+    } else {
+        mwropt = _dbMainWindow();
+        fropt = _selectedMdiFrame();
+        dropt = _selectedDoc();
+    }
+
+    assert(mwropt);
+    if (!dropt) return;
+    assert(fropt);
+
+    // Select all Dock frames in this or given window
     const QString
     dockFrameStr = QString("SELECT  *                   "
                            "FROM    frames              "
                            "WHERE   attach = 'Dock' AND "
                            "        mainWindowID = %1;").
-            arg(_dbMainWindow()->ID);
+                           arg(mwropt->ID);
 
     // Find correct docWidget based on loop Dock frame and
     // selected MDI Frame
@@ -386,10 +416,6 @@ void Emdi::_updateDockFrames() {
                    "WHERE  dw2.frameID = %1 AND        "
                    "       fr_sel.ID = %2;             ";
 
-    auto dropt = _selectedDoc();
-    auto fropt = _selectedMdiFrame();
-    if (!dropt) return;
-    assert(fropt);
     for (FrameRecord fr : getRecords<FrameRecord>(dockFrameStr)) {
         QWidget *ptr = nullptr;
         // See if there is DocWidget that belongs to this MDI Frame
@@ -491,13 +517,22 @@ void Emdi::_dbIncrMainWindow(unsigned int ID) {
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
 }
-void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord &mwr) {
-    // Assigng frame record's mainWindowID to mwr.ID
-    QSqlQuery query(QSqlDatabase::database("connviews"));
+void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord & oldmwr, const MainWindowRecord & newmwr) {
+    // Move frame from one mainWindow to the other mainWindow
+    // Assign frame record's mainWindowID to mwr.ID
+    assert(fr.attach == AttachmentType::MDI);
+    QMdiArea *oldmdi = static_cast<QMdiArea *>(oldmwr.ptr->centralWidget());
+    QMdiArea *newmdi = static_cast<QMdiArea *>(newmwr.ptr->centralWidget());
+    oldmdi->removeSubWindow(fr.ptr);
+    newmdi->addSubWindow(fr.ptr);
+    fr.ptr->show();
+    fr.ptr->activateWindow();
+   
+QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("UPDATE frames              \n "
                         "SET    mainWindowID = %1   \n"
                         "WHERE  ID = %2;").
-                arg(mwr.ID).
+                arg(newmwr.ID).
                 arg(fr.ID);
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
@@ -752,6 +787,7 @@ void Emdi::_onMdiClosed(QObject *sw) {
 
     // Close highest priority empty mainWindow, but only
     // if there is another mainWindow
+    // TODO: put this in a function and call it cleanupMainWindows or something.
     auto emwr = _dbEmptyMainWindow();
     auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows");
     if(emwr && mwrs.size() > 1) {
@@ -817,27 +853,14 @@ bool Emdi::popoutMdiFrame() {
     auto oldmwropt = _dbMainWindow();
     assert(oldmwropt);
 
-    QMdiArea *mdi = static_cast<QMdiArea *>(oldmwropt->ptr->centralWidget());
-    mdi->removeSubWindow(fropt->ptr);
-
     // Use an existing empty main window, or create a new one if not found
-    auto mwropt = _dbEmptyMainWindow();
-    if (mwropt) {
-        mwropt->ptr->activateWindow();
-        mwropt->ptr->setFocus(Qt::MouseFocusReason);
-    }
-    else {
+    auto newmwropt = _dbEmptyMainWindow();
+    if (!newmwropt) {
         newMainWindow();
-        mwropt = _dbMainWindow();
+        newmwropt = _dbMainWindow();
+        assert(newmwropt);
     }
-
-    // TODO: put this in separate function
-    // Put the subwindow in the new MDI area
-    mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
-    mdi->addSubWindow(fropt->ptr);
-    fropt->ptr->show();
-    fropt->ptr->activateWindow();
-    _dbMoveMdiFrame(*fropt, *mwropt);
+    _dbMoveMdiFrame(*fropt, *oldmwropt, *newmwropt);
 
     // Identify which userTypes are showing in old mainWindow for this doc
     // Show those userTypes in new window
@@ -858,20 +881,12 @@ bool Emdi::moveMdiToPrevious() {
     auto fropt = _selectedMdiFrame();
     if (!fropt)
         return false;
-    auto mwropt = _dbMainWindow();
-    auto lmwropt = _dbMainWindow(1);
-    // TODO: put this in separate function as above
-    QMdiArea *mdi = static_cast<QMdiArea *>(lmwropt->ptr->centralWidget());
-    mdi->addSubWindow(fropt->ptr);
-    fropt->ptr->show();
-    fropt->ptr->activateWindow();
-    _dbMoveMdiFrame(*fropt, *lmwropt);
-    // TODO: this is a place where updateDockFrames could benefit
-    // TODO: from taking a mainWindows argument
-    mwropt->ptr->activateWindow();
-    mwropt->ptr->setFocus(Qt::MouseFocusReason);
-    _updateDockFrames();
-    lmwropt->ptr->activateWindow();
-    lmwropt->ptr->setFocus(Qt::MouseFocusReason);
-    _updateDockFrames();
+    auto oldmwr = *_dbMainWindow();
+    auto newmwr = *_dbMainWindow(1);
+    _dbMoveMdiFrame(*fropt, oldmwr, newmwr);
+    _updateDockFrames(oldmwr);
+    _updateDockFrames(newmwr);
+    // TODO: close empty mainwindows by calling cleanupMainWindows
+    // TODO: based on the todo in line ~700-something.
+    return true;
 }

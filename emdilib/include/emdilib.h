@@ -195,7 +195,7 @@ private:
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int);
     FrameRecord _dbAttachDocWidgetToFrame(const DocWidgetRecord &, const FrameRecord &);
     FrameRecord _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
-    void _updateDockFrames();
+    void _updateDockFrames(std::optional<MainWindowRecord> = std::nullopt);
     void _clearDockFrames();
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
     std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
@@ -203,7 +203,7 @@ private:
     unsigned int _dbCountMdiFrames();
     unsigned int _dbCountMainWindows();
     void _dbIncrMainWindow(unsigned int);
-    void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &);
+    void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
     std::vector<std::string> _dbDockFrameUserTypes(const FrameRecord &);
 
