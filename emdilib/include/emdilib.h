@@ -172,6 +172,19 @@ public:
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
+class MoveFilter : public QObject {
+private:
+    Emdi *m_emdi;
+    std::function<void (QObject *)> m_fn;
+public:
+    MoveFilter(QObject *parent, Emdi *emdi, std::function<void (QObject *)> fn) :
+        QObject(parent),
+        m_emdi(emdi),
+        m_fn(fn) {}
+    ~MoveFilter() override {qDebug("~MoveFilter()");}
+    bool eventFilter(QObject *watched, QEvent *event) override;
+};
+
 using QMainWindowFn_t = std::function<QMainWindow * ()>;
 using QMdiSubWindowFn_t = std::function<QMdiSubWindow * ()>;
 using QDockWidgetFn_t = std::function<QDockWidget * ()>;

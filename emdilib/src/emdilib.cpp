@@ -147,11 +147,29 @@ QString querr(const QString & comment, const QSqlQuery & query) {
                    arg(query.lastQuery());
 }
 
-
 bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
     (void) event;
     if (event->type() == QEvent::Close)
         m_fn(obj);
+    return false;
+}
+bool MoveFilter::eventFilter(QObject *obj, QEvent *event) {
+    (void) event;
+    static int i = 0;
+    switch (event->type()) {
+        case QEvent::Move:
+            qDebug() << i++ << "QEvent::Move";
+            break;
+        // case QEvent::DragMove:
+        //     qDebug() << i++ << "QEvent::DragMove";
+        //     break;
+        // case QEvent::MouseMove:
+        //     qDebug() << i++ << "QEvent::MouseMove";
+        //     break;
+        default:
+            break;
+    }
+    //m_fn(obj);
     return false;
 }
 
@@ -349,6 +367,9 @@ FrameRecord Emdi::_dbAttachDocWidgetToFrame(const DocWidgetRecord & dwr, const F
 FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & userType, const MainWindowRecord & mwr) {
     // Create new MDI frame as subroutine of newMdiFrame and duplicateMdiFrame
     QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
+    MoveFilter *mf = new MoveFilter(frame, this, [](QObject *obj){});
+    frame->installEventFilter(mf);
+
     FrameRecord fr = _dbAddFrame(frame, AttachmentType::MDI, userType, mwr.ID);
     _dbAttachDocWidgetToFrame(dwr, fr);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
