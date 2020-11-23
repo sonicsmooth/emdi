@@ -45,8 +45,8 @@ struct DocRecord {
 struct DocWidgetRecord {
     unsigned int ID;
     QWidget *ptr;
-    unsigned int docID;
     unsigned int frameID;
+    unsigned int docID;
     DocWidgetRecord();
     DocWidgetRecord(const QSqlQuery &);
     DocWidgetRecord & operator=(const DocWidgetRecord &);
@@ -215,10 +215,11 @@ public:
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     void newMainWindow();
     void openDocument(const Document *);
+    void closeAll();
     bool closeDocument();
     bool closeDocument(const std::string &);
     bool closeDocument(Document *);
-    void newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow = nullptr);
+    void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
     bool popoutMdiFrame();

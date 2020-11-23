@@ -130,6 +130,7 @@ QWidget *buttonWindow(Emdi & emdi, docVec_t & docVec) {
     pb = new QPushButton("Quit");
     vb->addWidget(pb);
     QObject::connect(pb, &QPushButton::clicked, [&](){
+        emdi.closeAll();
         qApp->quit();});
 
     vb->addStretch();

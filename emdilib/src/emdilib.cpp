@@ -373,7 +373,6 @@ void Emdi::_updateDockFrames(std::optional<MainWindowRecord> mwropt) {
         QWidget *sw = mdi->activeSubWindow();
         if (!sw) {
             _clearDockFrames();
-            //qDebug() << "No active subWindow";
             return;
         }
         fropt = getRecord<FrameRecord>("ptr", sw);
@@ -615,6 +614,12 @@ void Emdi::openDocument(const Document *doc) {
     assert(doc->name().size());
     _dbAddDocument(doc);
 }
+void Emdi::closeAll() {
+    auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows;");
+    for (const MainWindowRecord & mwr : mwrs) {
+        mwr.ptr->close();
+    }
+}
 bool Emdi::closeDocument() {
     std::optional<DocRecord> dropt = _selectedDoc();
     if (dropt) {
@@ -643,7 +648,7 @@ bool Emdi::closeDocument(Document *ptr) {
         return false;
     }
 }
-void Emdi::newMdiFrame(const std::string & docName, const std::string & userType, QMainWindow *mainWindow) {
+void Emdi::newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow*/) {
     // Always new MDI view and new DocWidget attaching to doc given by docName.
     // docName is critical -- error if not found or empty
     // userType is not critical -- just used in title
@@ -654,8 +659,6 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     auto dropt = getRecord<DocRecord>("name", docName);
     assert(dropt);
 
-    // TODO: use mainWindow argument if not null
-    (void) mainWindow;
     // Make sure we have a mainWindow
     auto mwropt = _dbMainWindow();
     if (!mwropt)
