@@ -1,20 +1,25 @@
 #include "emdilib.h"
 
 #include <QApplication>
+#include <QCursor>
 #include <QDebug>
 #include <QDockWidget>
 #include <QEvent>
 #include <QFocusEvent>
 #include <QMainWindow>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QObject>
+#include <QPoint>
+#include <QScreen>
+#include <QSize>
 #include <QString>
 #include <QSqlDatabase>
 #include <QSqlQuery>
-#include <QtSql>
 #include <QSqlQuery>
+#include <QtSql>
 #include <QVariant>
 
 #include <algorithm>
@@ -148,28 +153,22 @@ QString querr(const QString & comment, const QSqlQuery & query) {
 }
 
 bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
-    (void) event;
     if (event->type() == QEvent::Close)
         m_fn(obj);
     return false;
 }
-bool MoveFilter::eventFilter(QObject *obj, QEvent *event) {
-    (void) event;
-    static int i = 0;
+bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
     switch (event->type()) {
-        case QEvent::Move:
-            qDebug() << i++ << "QEvent::Move";
+        //case QEvent::Move:
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonRelease:
+            m_fn(obj, event);
+            //qDebug() << event;
             break;
-        // case QEvent::DragMove:
-        //     qDebug() << i++ << "QEvent::DragMove";
-        //     break;
-        // case QEvent::MouseMove:
-        //     qDebug() << i++ << "QEvent::MouseMove";
-        //     break;
         default:
             break;
     }
-    //m_fn(obj);
+
     return false;
 }
 
@@ -182,8 +181,8 @@ Emdi::Emdi() {
 #endif
     _dbInitDb();
     QObject::connect(qApp, &QApplication::focusChanged, this, &Emdi::_onFocusChanged);
+    }
 
-}
 Emdi::~Emdi() {
     {
         QSqlDatabase db = QSqlDatabase::database("connviews");
@@ -367,7 +366,9 @@ FrameRecord Emdi::_dbAttachDocWidgetToFrame(const DocWidgetRecord & dwr, const F
 FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & userType, const MainWindowRecord & mwr) {
     // Create new MDI frame as subroutine of newMdiFrame and duplicateMdiFrame
     QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
-    MoveFilter *mf = new MoveFilter(frame, this, [](QObject *obj){});
+    MouseMoveFilter *mf = new MouseMoveFilter(frame, this, [this](QObject *obj, const QEvent *event) {
+        _mdiMoveCallback(static_cast<QMdiSubWindow *>(obj),
+                         static_cast<const QMouseEvent *>(event));});
     frame->installEventFilter(mf);
 
     FrameRecord fr = _dbAddFrame(frame, AttachmentType::MDI, userType, mwr.ID);
@@ -600,6 +601,21 @@ std::vector<std::string> Emdi::_dbDockFrameUserTypes(const FrameRecord & fr) {
         ret.push_back(qVal<QString>(query, "userType").toStdString());
     }
     return ret;
+}
+void Emdi::_mdiMoveCallback(QMdiSubWindow *sw, const QMouseEvent *event) {
+    QMainWindow *mw = static_cast<QMainWindow *>(sw->window());
+    QSize mwsz = mw->size();
+    QPoint mwpos = mw->pos();
+    QPoint mspos = event->globalPos();
+    QPoint bottomright = mwpos + QPoint(mwsz.width(), mwsz.height());
+    QPoint brdiff = mspos - bottomright;
+    QPoint uldiff = mspos - mwpos;
+    bool outside = brdiff.x() > 0 |
+                   brdiff.y() > 0 |
+                   uldiff.x() < 0 |
+                   uldiff.y() < 0;
+    qDebug() << outside;
+
 }
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;

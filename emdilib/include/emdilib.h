@@ -172,16 +172,19 @@ public:
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
-class MoveFilter : public QObject {
+
+class MouseMoveFilter : public QObject {
 private:
     Emdi *m_emdi;
-    std::function<void (QObject *)> m_fn;
+    typedef std::function<void (QObject *, QEvent *)> emdi_fn;
+    emdi_fn m_fn;
+
 public:
-    MoveFilter(QObject *parent, Emdi *emdi, std::function<void (QObject *)> fn) :
+    MouseMoveFilter(QObject *parent, Emdi *emdi, emdi_fn fn) :
         QObject(parent),
         m_emdi(emdi),
         m_fn(fn) {}
-    ~MoveFilter() override {qDebug("~MoveFilter()");}
+    ~MouseMoveFilter() override {qDebug("~MoveFilter()");}
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
@@ -219,6 +222,7 @@ private:
     void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
     std::vector<std::string> _dbDockFrameUserTypes(const FrameRecord &);
+    void _mdiMoveCallback(QMdiSubWindow *, const QMouseEvent *);
 
 public:
     Emdi();
