@@ -610,12 +610,19 @@ void Emdi::_mdiMoveCallback(QMdiSubWindow *sw, const QMouseEvent *event) {
     QPoint bottomright = mwpos + QPoint(mwsz.width(), mwsz.height());
     QPoint brdiff = mspos - bottomright;
     QPoint uldiff = mspos - mwpos;
-    bool outside = brdiff.x() > 0 |
-                   brdiff.y() > 0 |
-                   uldiff.x() < 0 |
-                   uldiff.y() < 0;
-    if (outside && )
-    qDebug() << outside;
+    bool outside = (brdiff.x() > 0) |
+                   (brdiff.y() > 0) |
+                   (uldiff.x() < 0) |
+                   (uldiff.y() < 0);
+//    lastOutsideState = outsideState;
+    if (outside && !outsideState) {
+        qDebug() << "Going out";
+
+    } else if (!outside && outsideState) {
+        qDebug() << "Going in";
+    }
+    outsideState = outside;
+    //qDebug() << outside;
 
 }
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
