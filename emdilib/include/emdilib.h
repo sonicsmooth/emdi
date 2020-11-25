@@ -199,6 +199,8 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
+    bool outsideState;
+    bool lastOutsideState;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);

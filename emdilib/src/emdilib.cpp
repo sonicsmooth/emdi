@@ -173,7 +173,9 @@ bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
 }
 
 
-Emdi::Emdi() {
+Emdi::Emdi() :
+    outsideState(false),
+    lastOutsideState(false) {
 #if defined(QT_DEBUG)
     qDebug("Hi from lib qt_debug");
 #elif defined(QT_NO_DEBUG)
@@ -213,8 +215,6 @@ void Emdi::_dbInitDb() {
 
                        "CREATE TABLE docWidgets  (ID       INTEGER PRIMARY KEY AUTOINCREMENT,         \n"
                        "                          ptr      INTEGER UNIQUE,                            \n"
-                       //"                          userType TEXT CHECK(userType IS NOT NULL AND        \n"
-                       //"                                              length(userType) > 0),          \n"
                        "                          frameID  INTEGER REFERENCES frames(ID),             \n"
                        "                          docID    INTEGER REFERENCES docs(ID));                ",
 
@@ -614,6 +614,7 @@ void Emdi::_mdiMoveCallback(QMdiSubWindow *sw, const QMouseEvent *event) {
                    brdiff.y() > 0 |
                    uldiff.x() < 0 |
                    uldiff.y() < 0;
+    if (outside && )
     qDebug() << outside;
 
 }
