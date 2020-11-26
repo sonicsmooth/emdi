@@ -11,6 +11,7 @@
 #include <QMdiSubWindow>
 #include <QSqlRecord>
 #include <QSqlQuery>
+//#include <QStackedWidget>
 #include <QWidget>
 
 #include <map>
@@ -177,13 +178,15 @@ class MouseMoveFilter : public QObject {
 private:
     Emdi *m_emdi;
     typedef std::function<void (QObject *, QEvent *)> emdi_fn;
-    emdi_fn m_fn;
+    emdi_fn m_moveFn;
+    emdi_fn m_releaseFn;
 
 public:
-    MouseMoveFilter(QObject *parent, Emdi *emdi, emdi_fn fn) :
+    MouseMoveFilter(QObject *parent, Emdi *emdi, emdi_fn mfn, emdi_fn rfn) :
         QObject(parent),
         m_emdi(emdi),
-        m_fn(fn) {}
+        m_moveFn(mfn),
+        m_releaseFn(rfn) {}
     ~MouseMoveFilter() override {qDebug("~MoveFilter()");}
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
@@ -199,8 +202,9 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
-    bool outsideState;
-    bool lastOutsideState;
+    bool m_outsideState;
+    bool m_lastOutsideState;
+    QWidget *m_outsideWidget;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);
@@ -224,7 +228,8 @@ private:
     void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
     std::vector<std::string> _dbDockFrameUserTypes(const FrameRecord &);
-    void _mdiMoveCallback(QMdiSubWindow *, const QMouseEvent *);
+    void _mdiMoveCallback(QObject *, const QEvent *);
+    void _mdiReleaseCallback(QObject *, const QEvent *);
 
 public:
     Emdi();

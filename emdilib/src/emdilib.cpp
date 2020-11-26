@@ -6,6 +6,7 @@
 #include <QDockWidget>
 #include <QEvent>
 #include <QFocusEvent>
+#include <QLabel>
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QMouseEvent>
@@ -13,12 +14,14 @@
 #include <QMdiSubWindow>
 #include <QObject>
 #include <QPoint>
+//#include <QPushButton>
 #include <QScreen>
 #include <QSize>
 #include <QString>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlQuery>
+#include <QStackedWidget>
 #include <QtSql>
 #include <QVariant>
 
@@ -158,15 +161,16 @@ bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
     return false;
 }
 bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
-    switch (event->type()) {
-        //case QEvent::Move:
+    switch(event->type()) {
         case QEvent::MouseMove:
+           m_moveFn(obj, event);
+           break;
         case QEvent::MouseButtonRelease:
-            m_fn(obj, event);
-            //qDebug() << event;
-            break;
+            qDebug() << "release";
+           m_releaseFn(obj, event);
+           break;
         default:
-            break;
+           break;
     }
 
     return false;
@@ -174,8 +178,9 @@ bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
 
 
 Emdi::Emdi() :
-    outsideState(false),
-    lastOutsideState(false) {
+    m_outsideState(false),
+    m_lastOutsideState(false),
+    m_outsideWidget(new QLabel()) {
 #if defined(QT_DEBUG)
     qDebug("Hi from lib qt_debug");
 #elif defined(QT_NO_DEBUG)
@@ -183,6 +188,8 @@ Emdi::Emdi() :
 #endif
     _dbInitDb();
     QObject::connect(qApp, &QApplication::focusChanged, this, &Emdi::_onFocusChanged);
+    m_outsideWidget->setWindowFlags(Qt::FramelessWindowHint);
+    //m_outsideWidget->setStyleSheet("background-color: rgba(0,0,0,0.5)");
     }
 
 Emdi::~Emdi() {
@@ -366,9 +373,11 @@ FrameRecord Emdi::_dbAttachDocWidgetToFrame(const DocWidgetRecord & dwr, const F
 FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & userType, const MainWindowRecord & mwr) {
     // Create new MDI frame as subroutine of newMdiFrame and duplicateMdiFrame
     QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
-    MouseMoveFilter *mf = new MouseMoveFilter(frame, this, [this](QObject *obj, const QEvent *event) {
-        _mdiMoveCallback(static_cast<QMdiSubWindow *>(obj),
-                         static_cast<const QMouseEvent *>(event));});
+    MouseMoveFilter *mf = new MouseMoveFilter(frame, this,
+                                              [this](QObject *obj, const QEvent *event) {
+                                                  _mdiMoveCallback(obj, event);},
+                                              [this](QObject *obj, const QEvent *event) {
+                                                  _mdiReleaseCallback(obj, event);});
     frame->installEventFilter(mf);
 
     FrameRecord fr = _dbAddFrame(frame, AttachmentType::MDI, userType, mwr.ID);
@@ -602,28 +611,66 @@ std::vector<std::string> Emdi::_dbDockFrameUserTypes(const FrameRecord & fr) {
     }
     return ret;
 }
-void Emdi::_mdiMoveCallback(QMdiSubWindow *sw, const QMouseEvent *event) {
+void Emdi::_mdiMoveCallback(QObject *obj, const QEvent *evt) {
+    QMdiSubWindow *sw = static_cast<QMdiSubWindow *>(obj);
+    const QMouseEvent *event = static_cast<const QMouseEvent *>(evt);
+    static QPoint epos = QPoint();
+    static QWidget *tmp;
     QMainWindow *mw = static_cast<QMainWindow *>(sw->window());
     QSize mwsz = mw->size();
     QPoint mwpos = mw->pos();
-    QPoint mspos = event->globalPos();
+    QPoint glpos = event->globalPos();
     QPoint bottomright = mwpos + QPoint(mwsz.width(), mwsz.height());
-    QPoint brdiff = mspos - bottomright;
-    QPoint uldiff = mspos - mwpos;
+    QPoint brdiff = glpos - bottomright;
+    QPoint uldiff = glpos - mwpos;
     bool outside = (brdiff.x() > 0) |
                    (brdiff.y() > 0) |
                    (uldiff.x() < 0) |
                    (uldiff.y() < 0);
-//    lastOutsideState = outsideState;
-    if (outside && !outsideState) {
-        qDebug() << "Going out";
+    QPoint newpos = QPoint(glpos.x() - epos.x(),
+                           glpos.y() - epos.y() );
+    if (outside && !m_outsideState) {
+        // going out; steal widget, make old mdi transparent
+        epos = event->pos();
+        m_outsideWidget->move(newpos);
+        m_outsideWidget->resize(sw->size());
+        m_outsideWidget->show();
+        sw->setWindowFlags(Qt::FramelessWindowHint);
+        sw->setStyleSheet("background-color: rgba(0,0,0,0)");
+        tmp = sw->widget();
+        sw->setWidget(nullptr);
+        mw->setFocus();
+        mw->activateWindow();
 
-    } else if (!outside && outsideState) {
-        qDebug() << "Going in";
+    } else if (!outside && m_outsideState) {
+        // Coming back into the mainwindow, replace stolen widget
+        m_outsideWidget->hide();
+        sw->setWidget(tmp);
+        sw->setWindowFlags(Qt::SubWindow);
+        sw->setStyleSheet("background-color: rgba(0,0,0,1");
     }
-    outsideState = outside;
-    //qDebug() << outside;
+    if (outside && m_outsideState && m_outsideWidget) {
+        m_outsideWidget->move(newpos);
+    }
+    m_outsideState = outside;
 
+}
+void Emdi::_mdiReleaseCallback(QObject *obj, const QEvent *evt) {
+    (void) obj;
+    const QMouseEvent *event = static_cast<const QMouseEvent *>(evt);
+    if (!m_outsideState)
+        return;
+//    if (_dbCountMdiFrames() < 2) {
+//        duplicateAndPopoutMdiFrame();
+//    } else {
+        popoutMdiFrame();
+//    }
+    m_outsideWidget->close();
+    auto mwropt = _dbMainWindow();
+    if (mwropt) {
+        const QMouseEvent *me = static_cast<const QMouseEvent *>(event);
+        mwropt->ptr->move(me->globalPos());
+    }
 }
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;
@@ -893,8 +940,8 @@ bool Emdi::popoutMdiFrame() {
     // Return false if there are fewer than 2 MDI frames in current window.
     // Otherwise, return true after making a new mainWindow and moving
     // currently selected MDI frame to it
-    if (_dbCountMdiFrames() < 2)
-        return false;
+    //if (_dbCountMdiFrames() < 2)
+    //    return false;
     auto fropt = _selectedMdiFrame();
     assert(fropt);
 

@@ -167,6 +167,6 @@ int main(int argc, char *argv[]) {
 #endif
 
     buttWindow->show();
-    //w.show();
-    return a.exec();
+    a.exec();
+    qDebug("Done");
 }
