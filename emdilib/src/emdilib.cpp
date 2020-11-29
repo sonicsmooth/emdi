@@ -628,7 +628,7 @@ auto Emdi::_calcOutside(const QMouseEvent *event, const QWidget *w) {
 }
 std::optional<MainWindowRecord> Emdi::_findUnderWindow(const QPoint & pos) {
     // Find first mainWindow coincident with pos
-    auto mwrs = getRecords<MainWindowRecord>("SELECT * from Mainwindows");
+    auto mwrs = getRecords<MainWindowRecord>("SELECT * from mainWindows");
     for (const MainWindowRecord & mwr : mwrs) {
         QPoint ul = mwr.ptr->pos();
         QSize mwsz = mwr.ptr->size();
@@ -708,22 +708,23 @@ void Emdi::_mdiReleaseCallback(QObject *obj, const QEvent *evt) {
     auto underWindowopt = _findUnderWindow(event->globalPos());
     _moveDragframeToSub(subWindow, m_dragFrame);
     if (underWindowopt) {
-        qDebug() << "Dropping on" << underWindowopt->ID;
         popoutMdiFrame(underWindowopt->ptr);
     }
     else {
-        qDebug() << "No underwindow";
         popoutMdiFrame();
     }
 
     m_dragFrame->hide();
     subWindow->widget()->show();
     m_lastOutsideState = false;
-
     _transparent(subWindow, false);
-
+    auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows");
     if (!underWindowopt)
         _dbMainWindow()->ptr->move(event->globalPos());
+    for (const MainWindowRecord & mwr : mwrs) {
+        _updateDockFrames(mwr);
+    }
+
 }
 
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
