@@ -14,10 +14,11 @@
 #include <QMdiSubWindow>
 #include <QObject>
 #include <QPoint>
-//#include <QPushButton>
+#include <QPushButton>
 #include <QScreen>
 #include <QSize>
 #include <QString>
+#include <QStackedWidget>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlQuery>
@@ -163,12 +164,11 @@ bool CloseFilter::eventFilter(QObject *obj, QEvent *event) {
 bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
     switch(event->type()) {
         case QEvent::MouseMove:
-           m_moveFn(obj, event);
-           break;
+            m_moveFn(obj, event);
+            break;
         case QEvent::MouseButtonRelease:
-            qDebug() << "release";
-           m_releaseFn(obj, event);
-           break;
+             m_releaseFn(obj, event);
+            break;
         default:
            break;
     }
@@ -178,9 +178,8 @@ bool MouseMoveFilter::eventFilter(QObject *obj, QEvent *event) {
 
 
 Emdi::Emdi() :
-    m_outsideState(false),
     m_lastOutsideState(false),
-    m_outsideWidget(new QLabel()) {
+    m_dragFrame(new QStackedWidget) {
 #if defined(QT_DEBUG)
     qDebug("Hi from lib qt_debug");
 #elif defined(QT_NO_DEBUG)
@@ -188,8 +187,7 @@ Emdi::Emdi() :
 #endif
     _dbInitDb();
     QObject::connect(qApp, &QApplication::focusChanged, this, &Emdi::_onFocusChanged);
-    m_outsideWidget->setWindowFlags(Qt::FramelessWindowHint);
-    //m_outsideWidget->setStyleSheet("background-color: rgba(0,0,0,0.5)");
+    m_dragFrame->setWindowFlags(Qt::FramelessWindowHint);
     }
 
 Emdi::~Emdi() {
@@ -319,17 +317,11 @@ bool Emdi::_dbRemoveDocument(const Document *ptr) {
         return false;
     }
 }
-MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
-    // Add a main window to the database
-    // Make sure selected is the highest select
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    QString s = QString("INSERT INTO mainWindows (selected, ptr)      \n "
-                        "VALUES ((SELECT IFNULL(MAX(selected), 0) + 1 \n "
-                        "         FROM    mainWindows), %1);").arg(uint64_t(ptr));
-    if (!query.exec(s))
-        fatalStr(querr("Could not execute add mainWindow", query), __LINE__);
-    return *getRecord<MainWindowRecord>("ptr", ptr);
-}
+//MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
+//    // Add a main window to the database
+//    // Make sure selected is the highest select
+
+//}
 std::optional<MainWindowRecord> Emdi::_dbMainWindow(unsigned int offset) {
     // Return most recently selected mainWindow, or if offset > 0, that row
     // or nullopt if nothing found
@@ -417,7 +409,7 @@ void Emdi::_updateDockFrames(std::optional<MainWindowRecord> mwropt) {
                             "WHERE  frames.ID = %1                      ").
                             arg(fropt->ID));
     } else {
-        mwropt = _dbMainWindow();
+        mwropt = _dbMainWindow(0);
         fropt = _selectedMdiFrame();
         dropt = _selectedDoc();
     }
@@ -467,7 +459,7 @@ void Emdi::_updateDockFrames(std::optional<MainWindowRecord> mwropt) {
 }
 void Emdi::_clearDockFrames() {
     // Remove all docWidgets from all dock frames
-    auto mwr = *_dbMainWindow();
+    auto mwr = *_dbMainWindow(0);
     // Nullifies docWidgetID from all dock frames in this mainWindow
     QSqlQuery query(QSqlDatabase::database("connviews"));
     if (!query.exec(QString("UPDATE frames               \n"
@@ -486,7 +478,7 @@ void Emdi::_clearDockFrames() {
 }
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
     (void) mainWindow;
-    auto mwropt = _dbMainWindow();
+    auto mwropt = _dbMainWindow(0);
     if (!mwropt)
         return std::nullopt;
     QMdiArea *mdi = static_cast<QMdiArea *>(mwropt->ptr->centralWidget());
@@ -512,7 +504,7 @@ std::optional<DocRecord> Emdi::_selectedDoc(const QMainWindow *mainWindow) {
 }
 unsigned int Emdi::_dbCountMdiFrames() {
     // Return how many MDI frames are in the current mainwindow
-    auto mwropt = _dbMainWindow();
+    auto mwropt = _dbMainWindow(0);
     if (!mwropt)
         return 0;
     unsigned int mwID = mwropt->ID;
@@ -547,7 +539,7 @@ void Emdi::_dbIncrMainWindow(unsigned int ID) {
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
 }
-void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord & oldmwr, const MainWindowRecord & newmwr) {
+bool Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord & oldmwr, const MainWindowRecord & newmwr) {
     // Move frame from one mainWindow to the other mainWindow
     // Assign frame record's mainWindowID to mwr.ID
     assert(fr.attach == AttachmentType::MDI);
@@ -558,7 +550,7 @@ void Emdi::_dbMoveMdiFrame(const FrameRecord &fr, const MainWindowRecord & oldmw
     fr.ptr->show();
     fr.ptr->activateWindow();
    
-QSqlQuery query(QSqlDatabase::database("connviews"));
+    QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("UPDATE frames              \n "
                         "SET    mainWindowID = %1   \n"
                         "WHERE  ID = %2;").
@@ -566,6 +558,13 @@ QSqlQuery query(QSqlDatabase::database("connviews"));
                 arg(fr.ID);
     if (!query.exec(s))
         fatalStr(querr("Could not increment mainWindow selected", query), __LINE__);
+
+    // Identify which userTypes are showing in old mainWindow for this doc
+    // Show those userTypes in new window
+    for (const std::string & ut : _dbDockFrameUserTypes(fr)) {
+        showDockFrame(ut);
+    }
+    return true;
 }
 std::optional<MainWindowRecord> Emdi::_dbEmptyMainWindow() {
     // Finds a mainWindow in db which does not have any MDI frames
@@ -611,67 +610,122 @@ std::vector<std::string> Emdi::_dbDockFrameUserTypes(const FrameRecord & fr) {
     }
     return ret;
 }
-void Emdi::_mdiMoveCallback(QObject *obj, const QEvent *evt) {
-    QMdiSubWindow *sw = static_cast<QMdiSubWindow *>(obj);
-    const QMouseEvent *event = static_cast<const QMouseEvent *>(evt);
-    static QPoint epos = QPoint();
-    static QWidget *tmp;
-    QMainWindow *mw = static_cast<QMainWindow *>(sw->window());
-    QSize mwsz = mw->size();
-    QPoint mwpos = mw->pos();
+auto Emdi::_calcOutside(const QMouseEvent *event, const QWidget *w) {
     QPoint glpos = event->globalPos();
-    QPoint bottomright = mwpos + QPoint(mwsz.width(), mwsz.height());
+    QPoint mwpos = w->pos();
+    QSize wsz = w->size();
+    QPoint bottomright = mwpos + QPoint(wsz.width(), wsz.height());
     QPoint brdiff = glpos - bottomright;
-    QPoint uldiff = glpos - mwpos;
-    bool outside = (brdiff.x() > 0) |
-                   (brdiff.y() > 0) |
-                   (uldiff.x() < 0) |
-                   (uldiff.y() < 0);
-    QPoint newpos = QPoint(glpos.x() - epos.x(),
-                           glpos.y() - epos.y() );
-    if (outside && !m_outsideState) {
+    QPoint uldiff = mwpos - glpos;
+    struct retVals {
+        bool outside;
+        QPoint brdiff;
+        QPoint uldiff;
+    };
+    bool outside = (brdiff.x() > 0) | (brdiff.y() > 0) |
+                   (uldiff.x() > 0) | (uldiff.y() > 0);
+    return retVals {outside, brdiff, uldiff};
+}
+std::optional<MainWindowRecord> Emdi::_findUnderWindow(const QPoint & pos) {
+    // Find first mainWindow coincident with pos
+    auto mwrs = getRecords<MainWindowRecord>("SELECT * from Mainwindows");
+    for (const MainWindowRecord & mwr : mwrs) {
+        QPoint ul = mwr.ptr->pos();
+        QSize mwsz = mwr.ptr->size();
+        QPoint br = ul + QPoint(mwsz.width(), mwsz.height());
+        if (pos.x() > ul.x() &&
+            pos.x() < br.x() &&
+            pos.y() < br.y() &&
+            pos.y() > ul.y()) {
+            return mwr;
+        }
+    }
+    return std::nullopt;
+}
+void Emdi::_transparent(QWidget *w, bool tf) {
+    if (tf) {
+        w->setWindowFlags(Qt::FramelessWindowHint);
+        w->setStyleSheet("background-color: rgba(0,0,0,0)");
+    } else {
+        w->setWindowFlags(Qt::SubWindow);
+        w->setStyleSheet("");
+    }
+}
+void Emdi::_moveSubToDragframe(QStackedWidget *stacked, QMdiSubWindow *subWindow) {
+    QWidget *inner = subWindow->widget();
+    stacked->addWidget(inner);
+    subWindow->setWidget(nullptr); // needed?
+}
+void Emdi::_moveDragframeToSub(QMdiSubWindow *subWindow, QStackedWidget *stacked) {
+    QWidget *inner = stacked->widget(0);
+    stacked->removeWidget(inner);
+    subWindow->setWidget(inner);
+}
+void Emdi::_mdiMoveCallback(QObject *obj, const QEvent *evt) {
+    const QMouseEvent *event = static_cast<const QMouseEvent *>(evt);
+    if (!(event->buttons() & Qt::LeftButton)) {
+        return;
+    }
+    QMdiSubWindow *subWindow = static_cast<QMdiSubWindow *>(obj);
+    static QPoint lastpos = QPoint();
+    QMainWindow *mw = static_cast<QMainWindow *>(subWindow->window());
+    auto [outside, brdiff, uldiff] = _calcOutside(event, mw);
+    QPoint newpos = event->globalPos() - lastpos;
+    // State transitions
+    if (!m_lastOutsideState && outside) {
         // going out; steal widget, make old mdi transparent
-        epos = event->pos();
-        m_outsideWidget->move(newpos);
-        m_outsideWidget->resize(sw->size());
-        m_outsideWidget->show();
-        sw->setWindowFlags(Qt::FramelessWindowHint);
-        sw->setStyleSheet("background-color: rgba(0,0,0,0)");
-        tmp = sw->widget();
-        sw->setWidget(nullptr);
-        mw->setFocus();
-        mw->activateWindow();
-
-    } else if (!outside && m_outsideState) {
+        _moveSubToDragframe(m_dragFrame, subWindow);
+        m_dragFrame->move(newpos);
+        m_dragFrame->resize(subWindow->size());
+        m_dragFrame->show();
+        _transparent(subWindow, true);
+        lastpos = event->pos();
+    } else if (m_lastOutsideState && !outside) {
         // Coming back into the mainwindow, replace stolen widget
-        m_outsideWidget->hide();
-        sw->setWidget(tmp);
-        sw->setWindowFlags(Qt::SubWindow);
-        sw->setStyleSheet("background-color: rgba(0,0,0,1");
+        _moveDragframeToSub(subWindow, m_dragFrame);
+        m_dragFrame->hide();
+        subWindow->widget()->show();
+        _transparent(subWindow, false);
     }
-    if (outside && m_outsideState && m_outsideWidget) {
-        m_outsideWidget->move(newpos);
+    // Move window
+    if (outside) {
+        m_dragFrame->move(newpos);
     }
-    m_outsideState = outside;
 
+    // Update
+    m_lastOutsideState = outside;
 }
 void Emdi::_mdiReleaseCallback(QObject *obj, const QEvent *evt) {
-    (void) obj;
-    const QMouseEvent *event = static_cast<const QMouseEvent *>(evt);
-    if (!m_outsideState)
+    // obj is the original mdi subwindow
+    // m_dragFrame currently owns the content
+    auto subWindow = static_cast<QMdiSubWindow *>(obj);
+    auto event = static_cast<const QMouseEvent *>(evt);
+
+    if (!m_lastOutsideState)
         return;
-//    if (_dbCountMdiFrames() < 2) {
-//        duplicateAndPopoutMdiFrame();
-//    } else {
-        popoutMdiFrame();
-//    }
-    m_outsideWidget->close();
-    auto mwropt = _dbMainWindow();
-    if (mwropt) {
-        const QMouseEvent *me = static_cast<const QMouseEvent *>(event);
-        mwropt->ptr->move(me->globalPos());
+
+    // Figure out what mainWindow we're hovering over
+    auto underWindowopt = _findUnderWindow(event->globalPos());
+    _moveDragframeToSub(subWindow, m_dragFrame);
+    if (underWindowopt) {
+        qDebug() << "Dropping on" << underWindowopt->ID;
+        popoutMdiFrame(underWindowopt->ptr);
     }
+    else {
+        qDebug() << "No underwindow";
+        popoutMdiFrame();
+    }
+
+    m_dragFrame->hide();
+    subWindow->widget()->show();
+    m_lastOutsideState = false;
+
+    _transparent(subWindow, false);
+
+    if (!underWindowopt)
+        _dbMainWindow()->ptr->move(event->globalPos());
 }
+
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;
 }
@@ -681,12 +735,9 @@ void Emdi::setMdiWindowCtor(const QMdiSubWindowFn_t & fn) {
 void Emdi::setDockWidgetCtor(const QDockWidgetFn_t & fn) {
     m_dockWidgetCtor = fn;
 }
-void Emdi::newMainWindow() {
+MainWindowRecord Emdi::_newMainWindow() {
     // Creates and sets up new mainwindow
-    // then calls the other addMainWindow to make sure
-    // it goes in the db
     QMainWindow *mainWindow = m_mainWindowCtor ? m_mainWindowCtor() : new QMainWindow;
-    _dbAddMainWindow(mainWindow);
     QMdiArea *mdi = new QMdiArea();
     mainWindow->setCentralWidget(mdi);
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
@@ -700,6 +751,18 @@ void Emdi::newMainWindow() {
     mainWindow->installEventFilter(cf);
     mainWindow->show();
     mainWindow->setFocus(Qt::MouseFocusReason);
+
+    // Put it in the db and return new record
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("INSERT INTO mainWindows (selected, ptr)      \n "
+                        "VALUES ((SELECT IFNULL(MAX(selected), 0) + 1 \n "
+                        "         FROM    mainWindows), %1);").arg(uint64_t(mainWindow));
+    if (!query.exec(s))
+        fatalStr(querr("Could not execute _newMainWindow", query), __LINE__);
+    return *getRecord<MainWindowRecord>("ptr", mainWindow);
+}
+void Emdi::newMainWindow() {
+    _newMainWindow();
 }
 void Emdi::openDocument(const Document *doc) {
     // Don't allow nameless docs to be added
@@ -936,33 +999,21 @@ void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
         _dbIncrMainWindow(mwropt->ID);
     }
 }
-bool Emdi::popoutMdiFrame() {
-    // Return false if there are fewer than 2 MDI frames in current window.
+bool Emdi::popoutMdiFrame(const QMainWindow *target) {
     // Otherwise, return true after making a new mainWindow and moving
     // currently selected MDI frame to it
-    //if (_dbCountMdiFrames() < 2)
-    //    return false;
+    if (_dbCountMdiFrames() == 0)
+        return false;
     auto fropt = _selectedMdiFrame();
     assert(fropt);
 
     auto oldmwropt = _dbMainWindow();
     assert(oldmwropt);
 
-    // Use an existing empty main window, or create a new one if not found
-    auto newmwropt = _dbEmptyMainWindow();
-    if (!newmwropt) {
-        newMainWindow();
-        newmwropt = _dbMainWindow();
-        assert(newmwropt);
-    }
-    _dbMoveMdiFrame(*fropt, *oldmwropt, *newmwropt);
-
-    // Identify which userTypes are showing in old mainWindow for this doc
-    // Show those userTypes in new window
-    for (const std::string & ut : _dbDockFrameUserTypes(*fropt)) {
-        showDockFrame(ut);
-    }
-    return true;
+    // Use target if valid.  If not, create a new one.
+    auto newmwropt = target ? getRecord<MainWindowRecord>("ptr", target) :_newMainWindow();
+    assert (newmwropt);
+    return _dbMoveMdiFrame(*fropt, *oldmwropt, *newmwropt);
 }
 bool Emdi::duplicateAndPopoutMdiFrame() {
     duplicateMdiFrame();
@@ -982,6 +1033,6 @@ bool Emdi::moveMdiToPrevious() {
     _updateDockFrames(oldmwr);
     _updateDockFrames(newmwr);
     // TODO: close empty mainwindows by calling cleanupMainWindows
-    // TODO: based on the todo in line ~700-something.
+    // TODO: based on the todo in line ~888-something.
     return true;
 }

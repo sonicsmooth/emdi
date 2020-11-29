@@ -9,9 +9,10 @@
 #include <QMainWindow>
 #include <QMdiArea>
 #include <QMdiSubWindow>
+#include <QSize>
 #include <QSqlRecord>
 #include <QSqlQuery>
-//#include <QStackedWidget>
+#include <QStackedWidget>
 #include <QWidget>
 
 #include <map>
@@ -202,15 +203,14 @@ private:
     QMainWindowFn_t m_mainWindowCtor;
     QMdiSubWindowFn_t m_mdiSubWindowCtor;
     QDockWidgetFn_t m_dockWidgetCtor;
-    bool m_outsideState;
     bool m_lastOutsideState;
-    QWidget *m_outsideWidget;
+    QStackedWidget *m_dragFrame;   // to mdiSubWindow contents while dragging
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const Document *);
     void _dbRemoveDocument(const DocRecord &);
     bool _dbRemoveDocument(const Document *);
-    MainWindowRecord _dbAddMainWindow(const QMainWindow *);
+    MainWindowRecord _newMainWindow();
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow(unsigned int = 0);
     DocWidgetRecord _dbAddDocWidget(const QWidget *, unsigned int);
@@ -225,11 +225,17 @@ private:
     unsigned int _dbCountMdiFrames();
     unsigned int _dbCountMainWindows();
     void _dbIncrMainWindow(unsigned int);
-    void _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &, const MainWindowRecord &);
+    bool _dbMoveMdiFrame(const FrameRecord &, const MainWindowRecord &, const MainWindowRecord &);
     std::optional<MainWindowRecord> _dbEmptyMainWindow();
     std::vector<std::string> _dbDockFrameUserTypes(const FrameRecord &);
+    auto _calcOutside(const QMouseEvent *, const QWidget *);
+    std::optional<MainWindowRecord> _findUnderWindow(const QPoint &);
+    void _transparent(QWidget *, bool);
+    void _moveSubToDragframe(QStackedWidget *, QMdiSubWindow *);
+    void _moveDragframeToSub(QMdiSubWindow *, QStackedWidget *);
     void _mdiMoveCallback(QObject *, const QEvent *);
     void _mdiReleaseCallback(QObject *, const QEvent *);
+
 
 public:
     Emdi();
@@ -246,7 +252,7 @@ public:
     void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
-    bool popoutMdiFrame();
+    bool popoutMdiFrame(const QMainWindow * = nullptr);
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
 
