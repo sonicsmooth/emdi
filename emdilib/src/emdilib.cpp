@@ -674,18 +674,18 @@ void Emdi::_mdiMoveCallback(QObject *obj, const QEvent *evt) {
     // State transitions
     if (!m_lastOutsideState && outside) {
         // going out; steal widget, make old mdi transparent
-        _moveSubToDragframe(m_dragFrame, subWindow);
+        //_moveSubToDragframe(m_dragFrame, subWindow);
         m_dragFrame->move(newpos);
         m_dragFrame->resize(subWindow->size());
         m_dragFrame->show();
-        _transparent(subWindow, true);
+        //_transparent(subWindow, true);
         lastpos = event->pos();
     } else if (m_lastOutsideState && !outside) {
         // Coming back into the mainwindow, replace stolen widget
-        _moveDragframeToSub(subWindow, m_dragFrame);
+        //_moveDragframeToSub(subWindow, m_dragFrame);
         m_dragFrame->hide();
         subWindow->widget()->show();
-        _transparent(subWindow, false);
+        //_transparent(subWindow, false);
     }
     // Move window
     if (outside) {
@@ -705,25 +705,23 @@ void Emdi::_mdiReleaseCallback(QObject *obj, const QEvent *evt) {
         return;
 
     // Figure out what mainWindow we're hovering over
-    auto underWindowopt = _findUnderWindow(event->globalPos());
-    _moveDragframeToSub(subWindow, m_dragFrame);
-    if (underWindowopt) {
-        popoutMdiFrame(underWindowopt->ptr);
-    }
-    else {
-        popoutMdiFrame();
-    }
+    auto frameopt = getRecord<FrameRecord>("ptr", subWindow);
+    auto oldmwropt = _dbMainWindow();
+    auto newmwropt = _findUnderWindow(event->globalPos());
+    MainWindowRecord newmwr = newmwropt ? *newmwropt : _newMainWindow();
+    //_moveDragframeToSub(subWindow, m_dragFrame);
+    _dbMoveMdiFrame(*frameopt, *oldmwropt, newmwr);
 
     m_dragFrame->hide();
     subWindow->widget()->show();
     m_lastOutsideState = false;
-    _transparent(subWindow, false);
-    auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows");
-    if (!underWindowopt)
+    //_transparent(subWindow, false);
+
+    _updateDockFrames(*oldmwropt);
+    _updateDockFrames(newmwr);
+
+    if (!newmwropt)
         _dbMainWindow()->ptr->move(event->globalPos());
-    for (const MainWindowRecord & mwr : mwrs) {
-        _updateDockFrames(mwr);
-    }
 
 }
 
@@ -1000,11 +998,12 @@ void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
         _dbIncrMainWindow(mwropt->ID);
     }
 }
-bool Emdi::popoutMdiFrame(const QMainWindow *target) {
+bool Emdi::popoutMdiFrame() {
     // Otherwise, return true after making a new mainWindow and moving
     // currently selected MDI frame to it
     if (_dbCountMdiFrames() == 0)
         return false;
+
     auto fropt = _selectedMdiFrame();
     assert(fropt);
 
@@ -1012,9 +1011,7 @@ bool Emdi::popoutMdiFrame(const QMainWindow *target) {
     assert(oldmwropt);
 
     // Use target if valid.  If not, create a new one.
-    auto newmwropt = target ? getRecord<MainWindowRecord>("ptr", target) :_newMainWindow();
-    assert (newmwropt);
-    return _dbMoveMdiFrame(*fropt, *oldmwropt, *newmwropt);
+    return _dbMoveMdiFrame(*fropt, *oldmwropt, _newMainWindow());
 }
 bool Emdi::duplicateAndPopoutMdiFrame() {
     duplicateMdiFrame();

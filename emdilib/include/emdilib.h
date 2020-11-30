@@ -252,7 +252,7 @@ public:
     void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
-    bool popoutMdiFrame(const QMainWindow * = nullptr);
+    bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
 
