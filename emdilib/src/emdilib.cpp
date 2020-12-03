@@ -355,7 +355,7 @@ FrameRecord Emdi::_dbAddFrame(const QWidget *ptr, AttachmentType at, const std::
 FrameRecord Emdi::_dbAttachDocWidgetToFrame(const DocWidgetRecord & dwr, const FrameRecord & fr) {
     // Modifies one FrameRecord
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    QStringList qsl = {QString("UPDATE frames SET docWidgetID = %1 WHERE  ID is %2;").
+    QStringList qsl = {QString("UPDATE frames SET docWidgetID = %1 WHERE ID is %2;").
                              arg(dwr.ID).arg(fr.ID),
                        QString("UPDATE docWidgets SET frameID = %1 WHERE ID is %2;").
                              arg(fr.ID).arg(dwr.ID)};
@@ -455,6 +455,7 @@ void Emdi::_updateDockFrames(std::optional<MainWindowRecord> mwropt) {
             }
         }
         static_cast<QDockWidget *>(fr.ptr)->setWidget(ptr);
+        fr.ptr->show();
     }
 }
 void Emdi::_clearDockFrames() {
@@ -462,11 +463,18 @@ void Emdi::_clearDockFrames() {
     auto mwr = *_dbMainWindow(0);
     // Nullifies docWidgetID from all dock frames in this mainWindow
     QSqlQuery query(QSqlDatabase::database("connviews"));
-    if (!query.exec(QString("UPDATE frames               \n"
-                            "SET    docWidgetID = NULL   \n"
-                            "WHERE  attach ='Dock' AND   \n"
-                            "       mainWindowID = %1;").arg(mwr.ID)))
-        fatalStr(querr("Could not update frames table", query), __LINE__);
+    QStringList qsl = {QString("UPDATE frames             \n"
+                               "SET    docWidgetID = NULL \n"
+                               "WHERE  attach ='Dock' AND \n"
+                               "       mainWindowID = %1;").arg(mwr.ID),
+                       QString("UPDATE docWidgets        \n"
+                               "SET    frameID = NULL    \n"
+                               "WHERE  frameID IN (      \n"
+                               "  SELECT  ID             \n"
+                               "  FROM frames            \n"
+                               "  WHERE docWidgetID IS NULL);")
+                      };
+    executeList(query, qsl, "Could not clear frames", __LINE__);
 
     for (FrameRecord fr : getRecords<FrameRecord>(
              QString("SELECT  *                   \n"
@@ -474,6 +482,7 @@ void Emdi::_clearDockFrames() {
                      "WHERE   attach = 'Dock' AND \n"
                      "        mainWindowID = %1;").arg(mwr.ID))) {
         static_cast<QDockWidget *>(fr.ptr)->setWidget(nullptr);
+        fr.ptr->hide();
     }
 }
 std::optional<FrameRecord> Emdi::_selectedMdiFrame(const QMainWindow *mainWindow) {
@@ -887,7 +896,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         frame->show();
     }
     _updateDockFrames();
-    }
+}
 
 // Public Slots
 void Emdi::_onMainWindowClosed(QObject *obj) {

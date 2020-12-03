@@ -167,6 +167,10 @@ int main(int argc, char *argv[]) {
 #endif
 
     buttWindow->show();
+
+//    newDoc<SchDocument>("Main Editor", emdi, docVec);
+//    emdi.showDockFrame("Doc Properties");
+//    emdi.popoutMdiFrame();
     a.exec();
     qDebug("Done");
 }
