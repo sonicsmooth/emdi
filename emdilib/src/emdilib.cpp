@@ -196,6 +196,7 @@ Emdi::~Emdi() {
         db.close();
     }
     QSqlDatabase::removeDatabase("connviews");
+    delete m_dragFrame;
 }
 
 void Emdi::_dbInitDb() {
@@ -745,7 +746,9 @@ void Emdi::setDockWidgetCtor(const QDockWidgetFn_t & fn) {
 }
 MainWindowRecord Emdi::_newMainWindow() {
     // Creates and sets up new mainwindow
+
     QMainWindow *mainWindow = m_mainWindowCtor ? m_mainWindowCtor() : new QMainWindow;
+    mainWindow->setAttribute(Qt::WA_DeleteOnClose);
     QMdiArea *mdi = new QMdiArea();
     mainWindow->setCentralWidget(mdi);
     QObject::connect(mdi, &QMdiArea::subWindowActivated, this, &Emdi::_onMdiActivated);
@@ -764,7 +767,7 @@ MainWindowRecord Emdi::_newMainWindow() {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     QString s = QString("INSERT INTO mainWindows (selected, ptr)      \n "
                         "VALUES ((SELECT IFNULL(MAX(selected), 0) + 1 \n "
-                        "         FROM    mainWindows), %1);").arg(uint64_t(mainWindow));
+                        "         FROM   mainWindows), %1);").arg(uint64_t(mainWindow));
     if (!query.exec(s))
         fatalStr(querr("Could not execute _newMainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", mainWindow);
