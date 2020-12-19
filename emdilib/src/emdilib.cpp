@@ -772,8 +772,8 @@ MainWindowRecord Emdi::_newMainWindow() {
         fatalStr(querr("Could not execute _newMainWindow", query), __LINE__);
     return *getRecord<MainWindowRecord>("ptr", mainWindow);
 }
-void Emdi::newMainWindow() {
-    _newMainWindow();
+QMainWindow *Emdi::newMainWindow() {
+    return _newMainWindow().ptr;
 }
 void Emdi::openDocument(const Document *doc) {
     // Don't allow nameless docs to be added
@@ -923,6 +923,7 @@ void Emdi::_onMainWindowClosed(QObject *obj) {
 void Emdi::_onMdiActivated(QMdiSubWindow *sw) {
     if (sw) {
         _updateDockFrames();
+        emit subWindowActivated(sw);
     }
 }
 void Emdi::_onMdiClosed(QObject *sw) {
@@ -1045,4 +1046,20 @@ bool Emdi::moveMdiToPrevious() {
     // TODO: close empty mainwindows by calling cleanupMainWindows
     // TODO: based on the todo in line ~888-something.
     return true;
+}
+Document *Emdi::document(const QMdiSubWindow *sw) {
+    // Return document pointer given QMdiSubWindow
+    QString qs =
+    QString("SELECT *          \n"
+            "FROM   docs       \n"
+            "JOIN   docWidgets \n"
+            "ON     docs.ID = docWidgets.docID \n"
+            "JOIN   frames     \n"
+            "ON     docWidgets.ID = frames.docWidgetID \n"
+            "WHERE  frames.ptr = %1").arg(uint64_t(sw));
+    auto dropt = getRecord<DocRecord>(qs);
+    if (dropt) {
+        qDebug() << "Doc:" << dropt->name.c_str();
+    }
+    return dropt ? dropt->ptr : nullptr;
 }

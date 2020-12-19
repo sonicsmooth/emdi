@@ -243,7 +243,7 @@ public:
     void setMainWindowCtor(const QMainWindowFn_t &);
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
-    void newMainWindow();
+    QMainWindow *newMainWindow();
     void openDocument(const Document *);
     void closeAll();
     bool closeDocument();
@@ -255,9 +255,11 @@ public:
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
+    Document *document(const QMdiSubWindow *);
 
 signals:
     void docClosed(void *);
+    void subWindowActivated(const QMdiSubWindow *);
 public slots:
     void _onMainWindowClosed(QObject *);
     void _onMdiActivated(QMdiSubWindow *);
