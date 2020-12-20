@@ -37,7 +37,7 @@ AttachmentType str2attach(T && s) {
 
 struct DocRecord {
     unsigned int ID;
-    Document *ptr;
+    IDocument *ptr;
     std::string name;
     DocRecord();
     DocRecord(const QSqlQuery &) ;
@@ -96,7 +96,7 @@ inline int argConvert(int v) {return v;}
 inline const char * argConvert(const std::string & v) {return v.c_str();}
 inline uint64_t argConvert(const QMainWindow *v) {return uint64_t(v);}
 inline uint64_t argConvert(const QWidget *v) {return uint64_t(v);}
-inline uint64_t argConvert(const Document *v) {return uint64_t(v);}
+inline uint64_t argConvert(const IDocument *v) {return uint64_t(v);}
 inline QString argConvert(AttachmentType v) {return attach2str<QString>(v);}
 
 template<typename T> QString tableName() {return "undefined";}
@@ -207,9 +207,9 @@ private:
     QStackedWidget *m_dragFrame;   // to mdiSubWindow contents while dragging
 
     void _dbInitDb();
-    DocRecord _dbAddDocument(const Document *);
+    DocRecord _dbAddDocument(const IDocument *);
     void _dbRemoveDocument(const DocRecord &);
-    bool _dbRemoveDocument(const Document *);
+    bool _dbRemoveDocument(const IDocument *);
     MainWindowRecord _newMainWindow();
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow(unsigned int = 0);
@@ -244,18 +244,18 @@ public:
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     QMainWindow *newMainWindow();
-    void openDocument(const Document *);
+    void openDocument(const IDocument *);
     void closeAll();
     bool closeDocument();
     bool closeDocument(const std::string &);
-    bool closeDocument(Document *);
+    bool closeDocument(IDocument *);
     void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
-    Document *document(const QMdiSubWindow *);
+    IDocument *document(const QMdiSubWindow *);
 
 signals:
     void docClosed(void *);

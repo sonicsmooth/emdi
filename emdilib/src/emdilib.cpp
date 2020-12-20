@@ -35,8 +35,8 @@
 
 
 
-template<> Document    * qVal<Document    *>(const QSqlQuery & query, int i) {
-    return reinterpret_cast<Document *>(query.value(i).toULongLong());
+template<> IDocument    * qVal<IDocument    *>(const QSqlQuery & query, int i) {
+    return reinterpret_cast<IDocument *>(query.value(i).toULongLong());
 }
 template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
     QMainWindow *val = reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
@@ -46,9 +46,9 @@ template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, int i) {
     QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
     return val;
 }
-template<> Document    * qVal<Document    *>(const QSqlQuery & query, const QString & field) {
+template<> IDocument    * qVal<IDocument    *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
-    Document *val = reinterpret_cast<Document *>(query.value(i).toULongLong());
+    IDocument *val = reinterpret_cast<IDocument *>(query.value(i).toULongLong());
     return val;
 }
 template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, const QString & field) {
@@ -255,7 +255,7 @@ void Emdi::_dbInitDb() {
     executeList(query, qsl, "Could not init", __LINE__);
 
 }
-DocRecord Emdi::_dbAddDocument(const Document *ptr) {
+DocRecord Emdi::_dbAddDocument(const IDocument *ptr) {
     QSqlQuery query(QSqlDatabase::database("connviews"));
     query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
     query.bindValue(":ptr", uint64_t(ptr));
@@ -309,7 +309,7 @@ void Emdi::_dbRemoveDocument(const DocRecord & dr) {
     for (const DocWidgetRecord & dwr : dwrs)
         delete dwr.ptr;
 }
-bool Emdi::_dbRemoveDocument(const Document *ptr) {
+bool Emdi::_dbRemoveDocument(const IDocument *ptr) {
     auto dropt = getRecord<DocRecord>("ptr", ptr);
     if(dropt) {
         _dbRemoveDocument(*dropt);
@@ -775,7 +775,7 @@ MainWindowRecord Emdi::_newMainWindow() {
 QMainWindow *Emdi::newMainWindow() {
     return _newMainWindow().ptr;
 }
-void Emdi::openDocument(const Document *doc) {
+void Emdi::openDocument(const IDocument *doc) {
     // Don't allow nameless docs to be added
     assert(doc->name().size());
     _dbAddDocument(doc);
@@ -803,7 +803,7 @@ bool Emdi::closeDocument(const std::string & name) {
         return false;
     }
 }
-bool Emdi::closeDocument(Document *ptr) {
+bool Emdi::closeDocument(IDocument *ptr) {
     if (_dbRemoveDocument(ptr)) {
         // Remove doc from db, close, notify listeners
         ptr->done();
@@ -832,7 +832,7 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     auto mwr = *_dbMainWindow();
 
     // Ensure doc is open, then get a view
-    Document *doc = dropt->ptr;
+    IDocument *doc = dropt->ptr;
     bool oldActive = doc->isActive(); // remember for a few lines
     if (!oldActive)
         doc->init(); // generic version of "open"
@@ -1047,7 +1047,7 @@ bool Emdi::moveMdiToPrevious() {
     // TODO: based on the todo in line ~888-something.
     return true;
 }
-Document *Emdi::document(const QMdiSubWindow *sw) {
+IDocument *Emdi::document(const QMdiSubWindow *sw) {
     // Return document pointer given QMdiSubWindow
     QString qs =
     QString("SELECT *          \n"
