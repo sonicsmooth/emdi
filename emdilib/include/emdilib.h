@@ -236,7 +236,6 @@ private:
     void _mdiMoveCallback(QObject *, const QEvent *);
     void _mdiReleaseCallback(QObject *, const QEvent *);
 
-
 public:
     Emdi();
     ~Emdi();
@@ -255,7 +254,7 @@ public:
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
-    IDocument *document(const QMdiSubWindow *);
+    const IDocument *document(const QMdiSubWindow *) const;
 
 signals:
     void docClosed(void *);
