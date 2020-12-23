@@ -2,7 +2,7 @@
 #define EMDILIB_H
 
 #include "emdilib_global.h"
-#include "vdocument.h"
+#include "idocument.h"
 
 #include <QEvent>
 #include <QFocusEvent>

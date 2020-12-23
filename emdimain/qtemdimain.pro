@@ -43,7 +43,6 @@ CONFIG(debug, debug|release) {
     emdimain.depends = emdilib
 }
 
-
 CONFIG(release, debug|release) {
     LIBS += -L$$PWD/../emdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Release/release/ -lemdilib
     PRE_TARGETDEPS += $$PWD/../emdilib/build-qtemdilib-Desktop_Qt_5_12_6_MSVC2017_64bit-Release/release/emdilib.lib

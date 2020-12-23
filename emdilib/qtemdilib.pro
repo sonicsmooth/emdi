@@ -15,8 +15,8 @@ SOURCES += \
 
 HEADERS += \
     include/emdilib.h \
-    include/emdilib_global.h \ \
-    include/vdocument.h
+    include/emdilib_global.h \
+    include/idocument.h
 
 INCLUDEPATH += include
 
