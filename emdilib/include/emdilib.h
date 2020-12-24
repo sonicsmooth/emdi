@@ -222,6 +222,7 @@ private:
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
     std::optional<DocWidgetRecord> _selectedDocWidget(const QMainWindow * = nullptr);
     std::optional<DocRecord> _selectedDoc(const QMainWindow * = nullptr);
+    DocRecord _mdiDoc(const QMdiSubWindow * = nullptr) const;
     unsigned int _dbCountMdiFrames();
     unsigned int _dbCountMainWindows();
     void _dbIncrMainWindow(unsigned int);
@@ -255,6 +256,7 @@ public:
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
     const IDocument *document(const QMdiSubWindow *) const;
+    std::string userType(const QMdiSubWindow *) const;
 
 signals:
     void docClosed(void *);

@@ -512,6 +512,21 @@ std::optional<DocRecord> Emdi::_selectedDoc(const QMainWindow *mainWindow) {
     else
         return getRecord<DocRecord>("ID", dwropt->docID);
 }
+DocRecord Emdi::_mdiDoc(const QMdiSubWindow *sw) const {
+    // Return doc held by mdi
+    // Errors if nothing found
+    QString qs =
+    QString("SELECT *                                  \n"
+            "FROM   docs                               \n"
+            "JOIN   docWidgets                         \n"
+            "ON     docs.ID = docWidgets.docID         \n"
+            "JOIN   frames                             \n"
+            "ON     docWidgets.ID = frames.docWidgetID \n"
+            "WHERE  frames.ptr = %1").arg(uint64_t(sw));
+    auto dropt = getRecord<DocRecord>(qs);
+    assert(dropt);
+    return *dropt;
+}
 unsigned int Emdi::_dbCountMdiFrames() {
     // Return how many MDI frames are in the current mainwindow
     auto mwropt = _dbMainWindow(0);
@@ -1049,17 +1064,11 @@ bool Emdi::moveMdiToPrevious() {
 }
 const IDocument *Emdi::document(const QMdiSubWindow *sw) const {
     // Return document pointer given QMdiSubWindow
-    QString qs =
-    QString("SELECT *          \n"
-            "FROM   docs       \n"
-            "JOIN   docWidgets \n"
-            "ON     docs.ID = docWidgets.docID \n"
-            "JOIN   frames     \n"
-            "ON     docWidgets.ID = frames.docWidgetID \n"
-            "WHERE  frames.ptr = %1").arg(uint64_t(sw));
-    auto dropt = getRecord<DocRecord>(qs);
-    if (dropt) {
-        qDebug() << "Doc:" << dropt->name.c_str();
-    }
-    return dropt ? dropt->ptr : nullptr;
+    const DocRecord dr = _mdiDoc(sw);
+    return dr.ptr;
+}
+std::string Emdi::userType(const QMdiSubWindow *sw) const {
+    auto fropt = getRecord<FrameRecord>("ptr", sw);
+    assert(fropt);
+    return fropt->userType;
 }
