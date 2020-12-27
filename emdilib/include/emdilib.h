@@ -252,6 +252,7 @@ public:
     void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
+    void closeDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
@@ -260,6 +261,7 @@ public:
 
 signals:
     void docClosed(void *);
+    void dockClosed(QDockWidget *, std::string);
     void subWindowActivated(const QMdiSubWindow *);
 public slots:
     void _onMainWindowClosed(QObject *);

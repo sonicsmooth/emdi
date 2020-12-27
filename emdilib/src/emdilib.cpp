@@ -883,14 +883,10 @@ void Emdi::duplicateMdiFrame() {
 }
 void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) {
     // Look for existing dockframe, return if found, else create new one
-
-    // TODO: use mainWindow if not null
-    (void) mainWindow;
     // Make sure we have a mainWindow
-    auto mwropt = getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
-    if (!mwropt)
-        newMainWindow();
-    auto mwr = *_dbMainWindow();
+    auto mwropt = mainWindow ? getRecord<MainWindowRecord>("ptr", mainWindow) :
+                               getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
+    assert(mwropt);
 
     QString qsUserType = QString::fromStdString(userType);
     QString s = QString("SELECT *      \n"
@@ -898,7 +894,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
                         "WHERE  userType = '%1' \n"
                         "AND    mainWindowID = %2;").
                         arg(qsUserType).
-                        arg(mwr.ID);
+                        arg(mwropt->ID);
     auto fropt = getRecord<FrameRecord>(s);
 
     if (fropt) {
@@ -906,8 +902,8 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         return;
     } else {
         QDockWidget *frame = m_dockWidgetCtor ? m_dockWidgetCtor() : new QDockWidget;
-        mwr.ptr->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
-        _dbAddFrame(frame, AttachmentType::Dock, userType, mwr.ID);
+        mwropt->ptr->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, frame);
+        _dbAddFrame(frame, AttachmentType::Dock, userType, mwropt->ID);
         QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onDockClosed);
         frame->setAttribute(Qt::WA_DeleteOnClose);
         frame->setWindowTitle(qsUserType);
@@ -915,7 +911,21 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
     }
     _updateDockFrames();
 }
-
+void Emdi::closeDockFrame(const std::string & userType, QMainWindow *mainWindow) {
+    auto mwropt = mainWindow ? getRecord<MainWindowRecord>("ptr", mainWindow) :
+                               getRecord<MainWindowRecord>("SELECT * FROM mainWindows LIMIT 1");
+    assert(mwropt);
+    QString qsUserType = QString::fromStdString(userType);
+    QString s = QString("SELECT *      \n"
+                        "FROM   frames \n"
+                        "WHERE  userType = '%1' \n"
+                        "AND    mainWindowID = %2;").
+                        arg(qsUserType).
+                        arg(mwropt->ID);
+    auto fropt = getRecord<FrameRecord>(s);
+    assert(fropt);
+    fropt->ptr->close();
+}
 // Public Slots
 void Emdi::_onMainWindowClosed(QObject *obj) {
     QMainWindow *mw = static_cast<QMainWindow *>(obj);
@@ -1010,6 +1020,7 @@ void Emdi::_onDockClosed(QObject *sw) {
     if (!query.exec(s)) {
         fatalStr(querr("Could not delete frame", query), __LINE__);
     }
+    emit dockClosed(frame, fr->userType);
 }
 void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
     // Increment the count of the newly selected mainWindow
