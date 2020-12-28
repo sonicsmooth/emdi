@@ -261,7 +261,7 @@ public:
 
 signals:
     void docClosed(void *);
-    void dockClosed(QDockWidget *, std::string);
+    void dockShown(QWidget *, std::string, bool); // mainwindow is passed as arg
     void subWindowActivated(const QMdiSubWindow *);
 public slots:
     void _onMainWindowClosed(QObject *);

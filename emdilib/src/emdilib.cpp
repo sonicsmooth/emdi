@@ -899,6 +899,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
 
     if (fropt) {
         fropt->ptr->show();
+        emit dockShown(fropt->ptr->window(), userType, true);
         return;
     } else {
         QDockWidget *frame = m_dockWidgetCtor ? m_dockWidgetCtor() : new QDockWidget;
@@ -908,6 +909,7 @@ void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) 
         frame->setAttribute(Qt::WA_DeleteOnClose);
         frame->setWindowTitle(qsUserType);
         frame->show();
+        emit dockShown(frame->window(), userType, true);
     }
     _updateDockFrames();
 }
@@ -1020,7 +1022,7 @@ void Emdi::_onDockClosed(QObject *sw) {
     if (!query.exec(s)) {
         fatalStr(querr("Could not delete frame", query), __LINE__);
     }
-    emit dockClosed(frame, fr->userType);
+    emit dockShown(frame->window(), fr->userType, false);
 }
 void Emdi::_onFocusChanged(QWidget *old, QWidget *now){
     // Increment the count of the newly selected mainWindow
