@@ -20,7 +20,7 @@ public:
     virtual bool supportsUserType(const std::string &) const = 0;
     virtual QWidget *newView(const std::string &) const = 0;
     virtual const std::string & name() const = 0;
-    virtual const QVariant & accept(const IDocVisitor *) const = 0;
+    virtual const QVariant & accept(IDocVisitor *) = 0;
 };
 
 
