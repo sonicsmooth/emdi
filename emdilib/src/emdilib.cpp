@@ -62,7 +62,7 @@ template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QStr
     return val;
 }
 
-void executeList(QSqlQuery & query, const QStringList & qsl, const QString & errstr, int linenum) {
+static void executeList(QSqlQuery & query, const QStringList & qsl, const QString & errstr, int linenum) {
     for (QString qs: qsl)
         if (!query.exec(qs))
             fatalStr(querr(errstr, query), linenum);
@@ -137,7 +137,7 @@ MainWindowRecord & MainWindowRecord::operator=(const MainWindowRecord & other) {
     return *this;
 }
 
-void fatalStr(const QString & inftxt, int line) {
+static void fatalStr(const QString & inftxt, int line) {
     qDebug(inftxt.toLatin1());
     QMessageBox mb;
     mb.setIcon(QMessageBox::Critical);
@@ -148,7 +148,7 @@ void fatalStr(const QString & inftxt, int line) {
     mb.exec();
     throw(std::logic_error(inftxt.toLatin1()));
 }
-QString querr(const QString & comment, const QSqlQuery & query) {
+static QString querr(const QString & comment, const QSqlQuery & query) {
     // Concatenates comment, last error, and query text with \n
     return QString("%1\n%2\n%3").
                    arg(comment).
@@ -201,7 +201,8 @@ Emdi::~Emdi() {
 
 void Emdi::_dbInitDb() {
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "connviews");
-    db.setDatabaseName("TheFile.db");
+    //db.setDatabaseName("TheFile.db");
+    db.setDatabaseName(":memory:");
     db.open();
     QSqlQuery query(db);
     const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
