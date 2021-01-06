@@ -1076,7 +1076,7 @@ bool Emdi::moveMdiToPrevious() {
     // TODO: based on the todo in line ~888-something.
     return true;
 }
-const IDocument *Emdi::document(const QMdiSubWindow *sw) const {
+IDocument *Emdi::document(const QMdiSubWindow *sw) const {
     // Return document pointer given QMdiSubWindow
     const DocRecord dr = _mdiDoc(sw);
     return dr.ptr;

@@ -256,7 +256,7 @@ public:
     bool popoutMdiFrame();
     bool duplicateAndPopoutMdiFrame();
     bool moveMdiToPrevious();
-    const IDocument *document(const QMdiSubWindow *) const;
+    IDocument *document(const QMdiSubWindow *) const;
     std::string userType(const QMdiSubWindow *) const;
 
 signals:
