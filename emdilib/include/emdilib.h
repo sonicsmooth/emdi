@@ -210,6 +210,7 @@ private:
     DocRecord _dbAddDocument(const IDocument *);
     void _dbRemoveDocument(const DocRecord &);
     bool _dbRemoveDocument(const IDocument *);
+    bool _dbRenameDocument(const IDocument *, const std::string &) const;
     MainWindowRecord _newMainWindow();
     void _dbRemoveMainWindow(const QMainWindow *);
     std::optional<MainWindowRecord> _dbMainWindow(unsigned int = 0);
@@ -249,6 +250,7 @@ public:
     bool closeDocument();
     bool closeDocument(const std::string &);
     bool closeDocument(IDocument *);
+    bool renameDocument(IDocument *, const std::string & newName) const;
     void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
@@ -261,6 +263,7 @@ public:
 
 signals:
     void docClosed(void *);
+    void docRenamed(const IDocument *) const;
     void dockShown(QWidget *, std::string, bool); // mainwindow is passed as arg
     void subWindowActivated(const QMdiSubWindow *);
 public slots:

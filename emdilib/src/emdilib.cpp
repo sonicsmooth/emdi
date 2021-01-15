@@ -201,8 +201,11 @@ Emdi::~Emdi() {
 
 void Emdi::_dbInitDb() {
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "connviews");
-    //db.setDatabaseName("TheFile.db");
+#if defined(QT_DEBUG)
+    db.setDatabaseName("TheFile.db");
+#elif defined(QT_NO_DEBUG)
     db.setDatabaseName(":memory:");
+#endif
     db.open();
     QSqlQuery query(db);
     const QString subq = "SELECT SUM(fail)>0 FROM                                                     \n"
@@ -319,11 +322,18 @@ bool Emdi::_dbRemoveDocument(const IDocument *ptr) {
         return false;
     }
 }
-//MainWindowRecord Emdi::_dbAddMainWindow(const QMainWindow *ptr) {
-//    // Add a main window to the database
-//    // Make sure selected is the highest select
-
-//}
+bool Emdi::_dbRenameDocument(const IDocument *ptr, const std::string & newName) const {
+    QSqlQuery query(QSqlDatabase::database("connviews"));
+    QString s = QString("UPDATE docs            \n"
+                        "SET name = :newname \n"
+                        "WHERE ptr = :ptr;" );
+    query.prepare(s);
+    query.bindValue(":newname", QString::fromStdString(newName));
+    query.bindValue(":ptr", uint64_t(ptr));
+    if (!query.exec())
+        fatalStr(querr("Could not rename document", query), __LINE__);
+    return true;
+}
 std::optional<MainWindowRecord> Emdi::_dbMainWindow(unsigned int offset) {
     // Return most recently selected mainWindow, or if offset > 0, that row
     // or nullopt if nothing found
@@ -826,7 +836,17 @@ bool Emdi::closeDocument(IDocument *ptr) {
         emit docClosed(ptr);
         return true;
     } else {
-        qDebug() << "Can't find document " << ptr;
+        qDebug() << "Can't find document" << ptr;
+        return false;
+    }
+}
+bool Emdi::renameDocument(IDocument *ptr, const std::string & newName) const {
+    if (_dbRenameDocument(ptr, newName)) {
+        ptr->setName(newName);
+        emit docRenamed(ptr);
+        return true;
+    } else {
+        qDebug() << "Can't find document" << ptr;
         return false;
     }
 }
