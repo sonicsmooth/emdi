@@ -387,11 +387,20 @@ FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & 
     FrameRecord fr = _dbAddFrame(frame, AttachmentType::MDI, userType, mwr.ID);
     _dbAttachDocWidgetToFrame(dwr, fr);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
+
+    QObject::connect(this, &Emdi::docRenamed, [frame, userType](const IDocument *ptr) {
+        QString title = QString::fromStdString(userType + "(" + ptr->name() + ")");
+        qDebug() << "renamed to" << title;
+        frame->setWindowTitle(title);
+    });
+
     frame->setWidget(dwr.ptr);
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
     mdi->addSubWindow(frame);
     mdi->setActiveSubWindow(frame);
     frame->setAttribute(Qt::WA_DeleteOnClose);
+    // todo: find way to get document name
+    // todo: find way to get common way of making document title
     frame->setWindowTitle(QString::fromStdString(userType));
     frame->show();
     return fr;
