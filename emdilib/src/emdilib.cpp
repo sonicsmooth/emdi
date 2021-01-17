@@ -33,6 +33,9 @@
 #include <optional>
 #include <vector>
 
+static void executeList(QSqlQuery &, const QStringList &, const QString &, int);
+[[noreturn ]] static void fatalStr(const QString &, int = 0);
+static QString querr(const QString &, const QSqlQuery &);
 
 
 template<> IDocument    * qVal<IDocument    *>(const QSqlQuery & query, int i) {
@@ -374,7 +377,8 @@ FrameRecord Emdi::_dbAttachDocWidgetToFrame(const DocWidgetRecord & dwr, const F
     executeList(query, qsl, "Could not attach docWidget to frame", __LINE__);
     return *getRecord<FrameRecord>("ID", fr.ID);
 }
-FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & userType, const MainWindowRecord & mwr) {
+FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & userType,
+                               const MainWindowRecord & mwr, const std::string & title) {
     // Create new MDI frame as subroutine of newMdiFrame and duplicateMdiFrame
     QMdiSubWindow *frame = m_mdiSubWindowCtor ? m_mdiSubWindowCtor() : new QMdiSubWindow;
     MouseMoveFilter *mf = new MouseMoveFilter(frame, this,
@@ -388,20 +392,12 @@ FrameRecord Emdi::_newMdiFrame(const DocWidgetRecord & dwr, const std::string & 
     _dbAttachDocWidgetToFrame(dwr, fr);
     QObject::connect(frame, &QObject::destroyed, this, &Emdi::_onMdiClosed);
 
-    QObject::connect(this, &Emdi::docRenamed, [frame, userType](const IDocument *ptr) {
-        QString title = QString::fromStdString(userType + "(" + ptr->name() + ")");
-        qDebug() << "renamed to" << title;
-        frame->setWindowTitle(title);
-    });
-
     frame->setWidget(dwr.ptr);
     QMdiArea *mdi = static_cast<QMdiArea *>(mwr.ptr->centralWidget());
     mdi->addSubWindow(frame);
     mdi->setActiveSubWindow(frame);
     frame->setAttribute(Qt::WA_DeleteOnClose);
-    // todo: find way to get document name
-    // todo: find way to get common way of making document title
-    frame->setWindowTitle(QString::fromStdString(userType));
+    frame->setWindowTitle(QString::fromStdString(title));
     frame->show();
     return fr;
 }
@@ -769,7 +765,9 @@ void Emdi::_mdiReleaseCallback(QObject *obj, const QEvent *evt) {
         _dbMainWindow()->ptr->move(event->globalPos());
 
 }
-
+std::string Emdi::mdiTitle(const IDocument *doc, const std::string & userType) {
+    return userType + " (" + doc->name() + ")";
+}
 void Emdi::setMainWindowCtor(const QMainWindowFn_t & fn) {
     m_mainWindowCtor = fn;
 }
@@ -890,7 +888,12 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
 
     // Add doc and mdi to db
     auto dwr = _dbAddDocWidget(docWidget, dropt->ID);
-    _newMdiFrame(dwr, userType, mwr);
+    FrameRecord fr = _newMdiFrame(dwr, userType, mwr, mdiTitle(doc, userType));
+    QWidget *frame = fr.ptr;
+    QObject::connect(this, &Emdi::docRenamed, [this, frame, userType](const IDocument *doc) {
+        frame->setWindowTitle(QString::fromStdString(mdiTitle(doc, userType)));
+    });
+
     // update is called by onMdiActivated
 }
 void Emdi::duplicateMdiFrame() {
@@ -908,7 +911,13 @@ void Emdi::duplicateMdiFrame() {
     QWidget *docWidget = dropt->ptr->newView(fropt->userType);
     assert(docWidget);
     DocWidgetRecord dwr = _dbAddDocWidget(docWidget, dropt->ID);
-    _newMdiFrame(dwr, fropt->userType, *mwropt);
+    FrameRecord fr = _newMdiFrame(dwr, fropt->userType, *mwropt, mdiTitle(dropt->ptr, fropt->userType));
+    QWidget *frame = fr.ptr;
+    const std::string & userType = fropt->userType;
+    QObject::connect(this, &Emdi::docRenamed, [this, frame, userType](const IDocument *doc) {
+        frame->setWindowTitle(QString::fromStdString(mdiTitle(doc, userType)));
+    });
+
     // update is called by onMdiActivated
 }
 void Emdi::showDockFrame(const std::string & userType, QMainWindow *mainWindow) {

@@ -74,8 +74,6 @@ struct MainWindowRecord {
     MainWindowRecord & operator=(const MainWindowRecord &);
 };
 
-[[noreturn ]] void fatalStr(const QString &, int = 0);
-QString querr(const QString &, const QSqlQuery &);
 
 
 template<typename T>
@@ -106,7 +104,6 @@ template<> inline QString tableName<FrameRecord>() {return "frames";}
 template<> inline QString tableName<MainWindowRecord>() {return "mainWindows";}
 
 
-void executeList(QSqlQuery &, const QStringList &, const QString &, int);
 
 // TODO: Figure out getRecord and getRecords with 
 // TODO: name/value pairs of arbitrary type value
@@ -217,7 +214,8 @@ private:
     DocWidgetRecord _dbAddDocWidget(const QWidget *, unsigned int);
     FrameRecord _dbAddFrame(const QWidget *, AttachmentType, const std::string &, unsigned int);
     FrameRecord _dbAttachDocWidgetToFrame(const DocWidgetRecord &, const FrameRecord &);
-    FrameRecord _newMdiFrame(const DocWidgetRecord &, const std::string & userType, const MainWindowRecord &);
+    FrameRecord _newMdiFrame(const DocWidgetRecord &, const std::string & userType,
+                             const MainWindowRecord &, const std::string & title);
     void _updateDockFrames(std::optional<MainWindowRecord> = std::nullopt);
     void _clearDockFrames();
     std::optional<FrameRecord> _selectedMdiFrame(const QMainWindow * = nullptr);
@@ -237,6 +235,7 @@ private:
     void _moveDragframeToSub(QMdiSubWindow *, QStackedWidget *);
     void _mdiMoveCallback(QObject *, const QEvent *);
     void _mdiReleaseCallback(QObject *, const QEvent *);
+    std::string mdiTitle(const IDocument *, const std::string &);
 
 public:
     Emdi();
