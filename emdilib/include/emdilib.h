@@ -40,7 +40,8 @@ struct DocRecord {
     IDocument *ptr;
     std::string name;
     DocRecord();
-    DocRecord(const QSqlQuery &) ;
+    DocRecord (const DocRecord &);
+    DocRecord(const QSqlQuery &);
     DocRecord & operator=(const DocRecord &);
 };
 
@@ -50,6 +51,7 @@ struct DocWidgetRecord {
     unsigned int frameID;
     unsigned int docID;
     DocWidgetRecord();
+    DocWidgetRecord(const DocWidgetRecord &);
     DocWidgetRecord(const QSqlQuery &);
     DocWidgetRecord & operator=(const DocWidgetRecord &);
 };
@@ -62,6 +64,7 @@ struct FrameRecord {
     unsigned int mainWindowID;
     unsigned int docWidgetID;
     FrameRecord();
+    FrameRecord(const FrameRecord &);
     FrameRecord(const QSqlQuery &);
     FrameRecord & operator=(const FrameRecord &);
 };
@@ -70,6 +73,7 @@ struct MainWindowRecord {
     unsigned int ID;
     QMainWindow *ptr;
     MainWindowRecord();
+    MainWindowRecord(const MainWindowRecord &);
     MainWindowRecord(const QSqlQuery &);
     MainWindowRecord & operator=(const MainWindowRecord &);
 };

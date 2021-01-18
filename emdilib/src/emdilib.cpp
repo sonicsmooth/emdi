@@ -75,6 +75,10 @@ DocRecord::DocRecord():
     ID(0),
     ptr(nullptr),
     name("") {}
+DocRecord::DocRecord(const DocRecord & other) :
+    ID(other.ID),
+    ptr(other.ptr),
+    name(other.name){}
 DocRecord::DocRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
@@ -91,6 +95,11 @@ DocWidgetRecord::DocWidgetRecord() :
     ptr(nullptr),
     frameID(0),
     docID(0){}
+DocWidgetRecord::DocWidgetRecord(const DocWidgetRecord & other) :
+    ID(other.ID),
+    ptr(other.ptr),
+    frameID(other.frameID),
+    docID(other.docID){}
 DocWidgetRecord::DocWidgetRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
@@ -111,6 +120,13 @@ FrameRecord::FrameRecord() :
     userType(""),
     mainWindowID(0),
     docWidgetID(0){}
+FrameRecord::FrameRecord(const FrameRecord & other) :
+    ID(other.ID),
+    ptr(other.ptr),
+    attach(other.attach),
+    userType(other.userType),
+    mainWindowID(other.mainWindowID),
+    docWidgetID(other.docWidgetID){}
 FrameRecord::FrameRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")),
@@ -131,6 +147,9 @@ FrameRecord & FrameRecord::operator=(const FrameRecord & other) {
 MainWindowRecord::MainWindowRecord() :
     ID(0),
     ptr(nullptr){}
+MainWindowRecord::MainWindowRecord(const MainWindowRecord & other) :
+    ID(other.ID),
+    ptr(other.ptr){}
 MainWindowRecord::MainWindowRecord(const QSqlQuery & query) :
     ID(qVal<decltype(ID)>(query, "ID")),
     ptr(qVal<decltype(ptr)>(query, "ptr")){}
@@ -893,7 +912,6 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     QObject::connect(this, &Emdi::docRenamed, [this, frame, userType](const IDocument *doc) {
         frame->setWindowTitle(QString::fromStdString(mdiTitle(doc, userType)));
     });
-
     // update is called by onMdiActivated
 }
 void Emdi::duplicateMdiFrame() {
