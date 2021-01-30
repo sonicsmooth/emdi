@@ -23,6 +23,8 @@ public:
     virtual const std::string & name() const = 0;
     virtual void accept(IDocVisitor *) = 0;
     virtual void accept(IDocVisitor *) const = 0;
+    virtual void accept(const IDocVisitor *) = 0;
+    virtual void accept(const IDocVisitor *) const = 0;
 };
 
 

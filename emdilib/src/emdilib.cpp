@@ -1134,6 +1134,7 @@ bool Emdi::moveMdiToPrevious() {
 }
 IDocument *Emdi::document(const QMdiSubWindow *sw) const {
     // Return document pointer given QMdiSubWindow
+    // Calling function must not pass nullptr
     const DocRecord dr = _mdiDoc(sw);
     return dr.ptr;
 }
