@@ -224,7 +224,8 @@ Emdi::~Emdi() {
 void Emdi::_dbInitDb() {
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "connviews");
 #if defined(QT_DEBUG)
-    db.setDatabaseName("TheFile.db");
+    //db.setDatabaseName("TheFile.db");
+    db.setDatabaseName("file:emdidb?mode=memory");
 #elif defined(QT_NO_DEBUG)
     db.setDatabaseName(":memory:");
 #endif
