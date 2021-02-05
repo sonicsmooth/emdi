@@ -171,7 +171,7 @@ public:
         QObject(parent),
         m_emdi(emdi),
         m_fn(fn) {}
-    ~CloseFilter() override {qDebug("~CloseFilter()");}
+    ~CloseFilter() override {}
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
@@ -189,7 +189,7 @@ public:
         m_emdi(emdi),
         m_moveFn(mfn),
         m_releaseFn(rfn) {}
-    ~MouseMoveFilter() override {qDebug("~MoveFilter()");}
+    ~MouseMoveFilter() override {}
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 
