@@ -243,7 +243,7 @@ private:
 
 public:
     Emdi();
-    ~Emdi();
+    ~Emdi() override;
     void setMainWindowCtor(const QMainWindowFn_t &);
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
@@ -266,7 +266,7 @@ public:
 
 signals:
     void docClosed(void *);
-    void docRenamed(const IDocument *) const;
+    void docRenamed(const IDocument *) const; // warning here is better than const_cast when emitting
     void dockShown(QWidget *, std::string, bool); // mainwindow is passed as arg
     void subWindowActivated(const QMdiSubWindow *);
 public slots:
