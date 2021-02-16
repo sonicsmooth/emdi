@@ -283,12 +283,21 @@ void Emdi::_dbInitDb() {
 
 }
 DocRecord Emdi::_dbAddDocument(const IDocument *ptr) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
-    query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
-    query.bindValue(":ptr", uint64_t(ptr));
-    query.bindValue(":name", QString::fromStdString(ptr->name()));
-    if (!query.exec())
-        fatalStr(querr("Could not execute add Document", query), __LINE__);
+    {
+        // Todo: create db clone class with scope, etc.
+        QSqlDatabase db = QSqlDatabase::cloneDatabase("connviews", "connviews_clone");
+        if (!db.open()) {
+            throw std::logic_error("Could not open cloned database");
+        }
+
+        QSqlQuery query(db);
+        query.prepare("INSERT INTO docs (ptr,name) VALUES (:ptr, :name)");
+        query.bindValue(":ptr", uint64_t(ptr));
+        query.bindValue(":name", QString::fromStdString(ptr->name()));
+        if (!query.exec())
+            fatalStr(querr("Could not execute add Document", query), __LINE__);
+        db.close();
+    }
     return *getRecord<DocRecord>("ptr", ptr);
 }
 void Emdi::_dbRemoveDocument(const DocRecord & dr) {
