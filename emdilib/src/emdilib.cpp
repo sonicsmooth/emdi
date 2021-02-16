@@ -23,6 +23,7 @@
 #include <QSqlQuery>
 #include <QSqlQuery>
 #include <QStackedWidget>
+#include <QThread>
 #include <QtSql>
 #include <QVariant>
 
@@ -161,13 +162,17 @@ MainWindowRecord & MainWindowRecord::operator=(const MainWindowRecord & other) {
 
 static void fatalStr(const QString & inftxt, int line) {
     qDebug(inftxt.toLatin1());
-    QMessageBox mb;
-    mb.setIcon(QMessageBox::Critical);
-    mb.setWindowTitle("DB Error");
-    if (line)
-        mb.setText("Line #" + QString::number(line));
-    mb.setInformativeText(inftxt);
-    mb.exec();
+    // TODO: Find a way to put messagebox in main
+    // thread if this fatalStr is running in non-main thread
+    if (QThread::currentThread() == QApplication::instance()->thread()) {
+        QMessageBox mb;
+        mb.setIcon(QMessageBox::Critical);
+        mb.setWindowTitle("DB Error");
+        if (line)
+            mb.setText("Line #" + QString::number(line));
+        mb.setInformativeText(inftxt);
+        mb.exec();
+    }
     throw(std::logic_error(inftxt.toLatin1()));
 }
 static QString querr(const QString & comment, const QSqlQuery & query) {
