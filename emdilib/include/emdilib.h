@@ -1,6 +1,7 @@
 #ifndef EMDILIB_H
 #define EMDILIB_H
 
+#include "dbclone.h"
 #include "emdilib_global.h"
 #include "idocument.h"
 
@@ -114,7 +115,8 @@ template<> inline QString tableName<MainWindowRecord>() {return "mainWindows";}
 // TODO: and variable arity
 template<typename RET_T, typename ARG_T>
 std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
+    DBClone db("connviews");
+    QSqlQuery query(db());
     QString s = QString("SELECT * FROM %1 WHERE %2 = :val LIMIT 1;").arg(tableName<RET_T>()).arg(field);
     query.prepare(s);
     query.bindValue(":val", argConvert(val));
@@ -127,7 +129,8 @@ std::optional<RET_T> getRecord(const QString & field, ARG_T val) {
 }
 template<typename RET_T, typename ARG_T>
 std::vector<RET_T> getRecords(const QString & field, ARG_T val) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
+    DBClone db("connviews");
+    QSqlQuery query(db());
     QString s = QString("SELECT * FROM %1 WHERE %2 = :val ;").arg(tableName<RET_T>()).arg(field);
     query.prepare(s);
     query.bindValue(":val", argConvert(val));
@@ -142,7 +145,8 @@ std::vector<RET_T> getRecords(const QString & field, ARG_T val) {
 // TODO: Figure out how to do prepared strings so weird values can be bound
 template<typename RET_T>
 std::optional<RET_T> getRecord(const QString & select) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
+    DBClone db("connviews");
+    QSqlQuery query(db());
     if (!query.exec(select))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     if(query.first())
@@ -151,7 +155,8 @@ std::optional<RET_T> getRecord(const QString & select) {
 }
 template<typename RET_T>
 std::vector<RET_T> getRecords(const QString & select) {
-    QSqlQuery query(QSqlDatabase::database("connviews"));
+    DBClone db("connviews");
+    QSqlQuery query(db());
     if (!query.exec(select))
         fatalStr(querr("Could not execute find record", query), __LINE__);
     std::vector<RET_T> vec;
@@ -248,7 +253,7 @@ public:
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     QMainWindow *newMainWindow();
-    void openDocument(const IDocument *);
+    void openDocument(IDocument *);
     void closeAll();
     bool closeDocument();
     bool closeDocument(const std::string &);
@@ -270,6 +275,7 @@ signals:
     void dockShown(QWidget *, std::string, bool); // mainwindow is passed as arg
     void subWindowActivated(const QMdiSubWindow *);
 public slots:
+    void _newMdiFrameSlot(const std::string & docname, const std::string & userType);
     void _onMainWindowClosed(QObject *);
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);
