@@ -875,6 +875,7 @@ void Emdi::openDocument(IDocument *doc) {
     if (!oldActive)
         doc->init(); // generic version of "open"
     _dbAddDocument(doc);
+    // emit done_open or something
 }
 void Emdi::closeAll() {
     auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows;");
