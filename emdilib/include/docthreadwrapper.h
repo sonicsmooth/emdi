@@ -19,15 +19,19 @@ class DocThreadWrapper : public QObject
 {
     Q_OBJECT
 private:
-    std::unique_ptr<IDocument> doc;
+    std::unique_ptr<IDocument> m_doc;
 public:
-    DocThreadWrapper(const DocThreadWrapper & dtw) {}
-    DocThreadWrapper(std::unique_ptr<IDocument> _doc) : doc(std::move(_doc)) {}
+    DocThreadWrapper(const DocThreadWrapper & ) {}
+    DocThreadWrapper(std::unique_ptr<IDocument> dp) :
+        m_doc(std::move(dp)){}
+    IDocument *get() const {return m_doc.get();}
 // The slots largely match the IDocument functions
 // But also some of the save functions that real
 // Documents have
 public slots:
-
+    void open() {
+        m_doc.get()->init();
+    }
 };
 
 #endif // DOCTHREADWRAPPER_H

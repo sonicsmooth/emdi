@@ -14,7 +14,6 @@
 #include <QMdiSubWindow>
 #include <QObject>
 #include <QPoint>
-#include <QPushButton>
 #include <QScreen>
 #include <QSize>
 #include <QString>
@@ -34,33 +33,35 @@
 #include <optional>
 #include <vector>
 
+// TODO: break this up into smaller files
+
 static void executeList(QSqlQuery &, const QStringList &, const QString &, int);
 [[noreturn ]] static void fatalStr(const QString &, int = 0);
 static QString querr(const QString &, const QSqlQuery &);
 
 
-template<> IDocument    * qVal<IDocument    *>(const QSqlQuery & query, int i) {
+template<> IDocument    * qVal<IDocument   *>(const QSqlQuery & query, int i) {
     return reinterpret_cast<IDocument *>(query.value(i).toULongLong());
 }
-template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
+template<> QMainWindow  * qVal<QMainWindow *>(const QSqlQuery & query, int i) {
     QMainWindow *val = reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
     return val;
 }
-template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, int i) {
+template<> QWidget      * qVal<QWidget     *>(const QSqlQuery & query, int i) {
     QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
     return val;
 }
-template<> IDocument    * qVal<IDocument    *>(const QSqlQuery & query, const QString & field) {
+template<> IDocument    * qVal<IDocument   *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
     IDocument *val = reinterpret_cast<IDocument *>(query.value(i).toULongLong());
     return val;
 }
-template<> QMainWindow * qVal<QMainWindow *>(const QSqlQuery & query, const QString & field) {
+template<> QMainWindow  * qVal<QMainWindow *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
     QMainWindow *val = reinterpret_cast<QMainWindow *>(query.value(i).toULongLong());
     return val;
 }
-template<> QWidget     * qVal<QWidget     *>(const QSqlQuery & query, const QString & field) {
+template<> QWidget      * qVal<QWidget     *>(const QSqlQuery & query, const QString & field) {
     int i = query.record().indexOf(field);
     QWidget *val = reinterpret_cast<QWidget *>(query.value(i).toULongLong());
     return val;
@@ -229,8 +230,8 @@ Emdi::~Emdi() {
 void Emdi::_dbInitDb() {
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "connviews");
 #if defined(QT_DEBUG)
-    //db.setDatabaseName("TheFile.db");
-    db.setDatabaseName("file:emdidb?mode=memory");
+    db.setDatabaseName("TheFile.db");
+    //db.setDatabaseName("file:emdidb?mode=memory");
 #elif defined(QT_NO_DEBUG)
     db.setDatabaseName(":memory:");
 #endif
@@ -868,8 +869,21 @@ QMainWindow *Emdi::newMainWindow() {
     return _newMainWindow().ptr;
 }
 void Emdi::openDocument(IDocument *doc) {
+    // Warning: the doc may live in a different thread
+    // and we are not mutexing here are we?
+    // When doc is in a different thread, then its
+    // init() method should probably be called dynamically
+    // with invokeMethod rather than directly here.  Oh wait,
+    // doc doesn't have meta methods, so instead we need the
+    // DocThreadWrapper which does.
+    // Todo: start using DocThreadWrapper and do invokeMethod
+    // instead of direct calls on IDocument *.
     // Don't allow nameless docs to be added
-    assert(doc->name().size());
+    qDebug() << "Open doc in" << QThread::currentThread();
+    std::string n = doc->name();
+    qDebug() << "Done get name" << QThread::currentThread();
+    assert(n.size());
+    qDebug() << "Done asserting in" << QThread::currentThread();
     // Ensure doc is open, then get a view
     bool oldActive = doc->isActive(); // remember for a few lines
     if (!oldActive)
@@ -927,8 +941,16 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     // userType is not critical -- just used in title
     // Uses the first docName found, so docName should be unique in database
 
+    // Warning: *doc may live/probably lives in a different thread
+    // so direct access may be dangerous.
+    // Todo: consider a mutex for direct doc access
+    // or use DocThreadWrapper and metaMethods
+
     // Make sure we have a document
+    qDebug() << "newMdiFrame in" << QThread::currentThread();
     assert(docName.size());
+    qDebug() << docName.c_str();
+    qDebug() << userType.c_str();
     auto dropt = getRecord<DocRecord>("name", docName);
     assert(dropt);
 
@@ -1031,9 +1053,9 @@ void Emdi::closeDockFrame(const std::string & userType, QMainWindow *mainWindow)
     fropt->ptr->close();
 }
 // Public Slots
-void Emdi::_newMdiFrameSlot(const std::string & docname, const std::string & userType) {
-    newMdiFrame(docname, userType);
-}
+//void Emdi::_newMdiFrameSlot(const std::string & docname, const std::string & userType) {
+//    newMdiFrame(docname, userType);
+//}
 void Emdi::_onMainWindowClosed(QObject *obj) {
     QMainWindow *mw = static_cast<QMainWindow *>(obj);
     // Uniformly close all mdiSubWindows and dockWidgets associated

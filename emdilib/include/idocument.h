@@ -1,6 +1,7 @@
 #ifndef VDOCUMENT_H
 #define VDOCUMENT_H
 
+#include <QMetatype>
 #include <QVariant>
 #include <QWidget>
 #include <string>
@@ -26,7 +27,6 @@ public:
     virtual void accept(const IDocVisitor *) = 0;
     virtual void accept(const IDocVisitor *) const = 0;
 };
-
 
 
 #endif

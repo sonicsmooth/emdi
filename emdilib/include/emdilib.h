@@ -253,13 +253,13 @@ public:
     void setMdiWindowCtor(const QMdiSubWindowFn_t &);
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     QMainWindow *newMainWindow();
-    void openDocument(IDocument *);
+    Q_INVOKABLE void openDocument(IDocument *);
     void closeAll();
     bool closeDocument();
     bool closeDocument(const std::string &);
     bool closeDocument(IDocument *);
     bool renameDocument(IDocument *, const std::string & newName) const;
-    void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
+    Q_INVOKABLE void newMdiFrame(const std::string & docName, const std::string & userType /*, QMainWindow *mainWindow = nullptr*/);
     void duplicateMdiFrame();
     void showDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
     void closeDockFrame(const std::string & userType, /* TODO: const */ QMainWindow *mainWindow = nullptr);
@@ -275,7 +275,7 @@ signals:
     void dockShown(QWidget *, std::string, bool); // mainwindow is passed as arg
     void subWindowActivated(const QMdiSubWindow *);
 public slots:
-    void _newMdiFrameSlot(const std::string & docname, const std::string & userType);
+    //void _newMdiFrameSlot(const std::string & docname, const std::string & userType);
     void _onMainWindowClosed(QObject *);
     void _onMdiActivated(QMdiSubWindow *);
     void _onMdiClosed(QObject *);
