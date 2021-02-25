@@ -29,9 +29,16 @@ public:
 // But also some of the save functions that real
 // Documents have
 public slots:
-    void open() {
-        m_doc.get()->init();
-    }
+    void init() {m_doc->init();}
+    void done() {m_doc->done();}
+    bool isActive() {return m_doc->isActive();}
+    bool supportsUserType(const std::string & userType) {
+        return m_doc->supportsUserType(userType);}
+    void accept(IDocVisitor *dv) {m_doc->accept(dv);}
+    void accept(const IDocVisitor *dv) {m_doc->accept(dv);}
+    void accept(IDocVisitor *dv) const {m_doc->accept(dv);}
+    void accept(const IDocVisitor *dv) const {m_doc->accept(dv);}
+    void setName(const std::string & name) {m_doc->setName(name);}
 };
 
 #endif // DOCTHREADWRAPPER_H

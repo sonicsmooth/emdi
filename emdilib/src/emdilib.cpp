@@ -879,11 +879,9 @@ void Emdi::openDocument(IDocument *doc) {
     // Todo: start using DocThreadWrapper and do invokeMethod
     // instead of direct calls on IDocument *.
     // Don't allow nameless docs to be added
-    qDebug() << "Open doc in" << QThread::currentThread();
+    qDebug() << "Emdi::Open doc in" << QThread::currentThread();
     std::string n = doc->name();
-    qDebug() << "Done get name" << QThread::currentThread();
     assert(n.size());
-    qDebug() << "Done asserting in" << QThread::currentThread();
     // Ensure doc is open, then get a view
     bool oldActive = doc->isActive(); // remember for a few lines
     if (!oldActive)
@@ -947,10 +945,7 @@ void Emdi::newMdiFrame(const std::string & docName, const std::string & userType
     // or use DocThreadWrapper and metaMethods
 
     // Make sure we have a document
-    qDebug() << "newMdiFrame in" << QThread::currentThread();
     assert(docName.size());
-    qDebug() << docName.c_str();
-    qDebug() << userType.c_str();
     auto dropt = getRecord<DocRecord>("name", docName);
     assert(dropt);
 
