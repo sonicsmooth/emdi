@@ -1,7 +1,6 @@
 #ifndef VDOCUMENT_H
 #define VDOCUMENT_H
 
-#include <QMetatype>
 #include <QVariant>
 #include <QWidget>
 #include <string>
@@ -9,8 +8,9 @@
 // Document class -- init, close, isActive, newView
 // Design Doc -- Must have >=1 MDI, closes with last MDI, can show in Dock
 
-// Forward Declaration
+// Forward Declarations
 class IDocVisitor;
+class DocThreadWrapper;
 
 class IDocument {
 public:
@@ -26,6 +26,7 @@ public:
     virtual void accept(IDocVisitor *) const = 0;
     virtual void accept(const IDocVisitor *) = 0;
     virtual void accept(const IDocVisitor *) const = 0;
+    virtual void setWrapper(const DocThreadWrapper *) = 0;
 };
 
 
