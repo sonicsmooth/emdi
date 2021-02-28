@@ -26,7 +26,8 @@ public:
     virtual void accept(IDocVisitor *) const = 0;
     virtual void accept(const IDocVisitor *) = 0;
     virtual void accept(const IDocVisitor *) const = 0;
-    virtual void setWrapper(const DocThreadWrapper *) = 0;
+    virtual void setWrapper(DocThreadWrapper *) = 0;
+    virtual DocThreadWrapper *wrapper() = 0;
 };
 
 

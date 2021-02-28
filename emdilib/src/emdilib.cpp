@@ -879,7 +879,6 @@ void Emdi::openDocument(IDocument *doc) {
     // Todo: start using DocThreadWrapper and do invokeMethod
     // instead of direct calls on IDocument *.
     // Don't allow nameless docs to be added
-    qDebug() << "Emdi::Open doc in" << QThread::currentThread();
     std::string n = doc->name();
     assert(n.size());
     // Ensure doc is open, then get a view

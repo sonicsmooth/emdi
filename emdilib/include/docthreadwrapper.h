@@ -23,11 +23,12 @@ private:
 public:
     DocThreadWrapper(const DocThreadWrapper & ) {}
     DocThreadWrapper(std::unique_ptr<IDocument> dp) :
-        m_doc(std::move(dp)){}
+        m_doc(std::move(dp))
+    {
+        m_doc->setWrapper(this);
+    }
     IDocument *get() const {return m_doc.get();}
 // The slots largely match the IDocument functions
-// But also some of the save functions that real
-// Documents have
 public slots:
     void init() {m_doc->init();}
     void done() {m_doc->done();}
