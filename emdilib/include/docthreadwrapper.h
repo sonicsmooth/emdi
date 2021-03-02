@@ -42,6 +42,7 @@ public:
         m_thread->quit();
         m_thread->wait();
         delete m_thread;
+        qDebug() << "~DocThreadWrapper";
     }
     IDocument *doc() const {return m_doc.get();}
 // The slots largely match the IDocument functions
@@ -49,13 +50,13 @@ public slots:
     void init() {m_doc->init();}
     void done() {m_doc->done();}
     bool isActive(Qt::ConnectionType ct) {return m_doc->isActive();}
-    bool supportsUserType(const std::string & userType, Qt::ConnectionType ct) {
+    bool supportsUserType(const std::string & userType) {
         return m_doc->supportsUserType(userType);}
-    void accept(IDocVisitor *dv, Qt::ConnectionType ct) {m_doc->accept(dv);}
-    void accept(const IDocVisitor *dv, Qt::ConnectionType ct) {m_doc->accept(dv);}
-    void accept(IDocVisitor *dv, Qt::ConnectionType ct) const {m_doc->accept(dv);}
-    void accept(const IDocVisitor *dv, Qt::ConnectionType ct) const {m_doc->accept(dv);}
-    void setName(const std::string & name, Qt::ConnectionType ct) {m_doc->setName(name);}
+    void accept(IDocVisitor *dv) {m_doc->accept(dv);}
+    void accept(const IDocVisitor *dv) {m_doc->accept(dv);}
+    void accept(IDocVisitor *dv) const {m_doc->accept(dv);}
+    void accept(const IDocVisitor *dv) const {m_doc->accept(dv);}
+    void setName(const std::string & name) {m_doc->setName(name);}
 signals:
     void initDone();
     void doneDone();

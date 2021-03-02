@@ -1,4 +1,5 @@
 #include "emdilib.h"
+#include "docthreadwrapper.h"
 
 #include <QApplication>
 #include <QCursor>
@@ -219,6 +220,12 @@ Emdi::Emdi() :
     }
 
 Emdi::~Emdi() {
+    // Close all documents
+    QString docsToCloseStr = QString("SELECT * FROM docs;");
+    auto docsToClose = getRecords<DocRecord>(docsToCloseStr);
+    if (docsToClose.size()) {
+        closeDocument(docsToClose[0].ptr);
+    }
     {
         QSqlDatabase db = QSqlDatabase::database("connviews");
         db.close();
@@ -888,6 +895,12 @@ void Emdi::openDocument(IDocument *doc) {
     _dbAddDocument(doc);
     // emit done_open or something
 }
+void Emdi::addWrapper(IDocument *doc, DocThreadWrapper *dtw) {
+    m_wrappers[doc] = dtw;
+}
+DocThreadWrapper *Emdi::getWrapper(IDocument *doc) {
+    return m_wrappers[doc];
+}
 void Emdi::closeAll() {
     auto mwrs = getRecords<MainWindowRecord>("SELECT * FROM mainWindows;");
     for (const MainWindowRecord & mwr : mwrs) {
@@ -914,7 +927,8 @@ bool Emdi::closeDocument(const std::string & name) {
 bool Emdi::closeDocument(IDocument *ptr) {
     if (_dbRemoveDocument(ptr)) {
         // Remove doc from db, close, notify listeners
-        ptr->done();
+        DocThreadWrapper *dtw = getWrapper(ptr);
+        QMetaObject::invokeMethod(dtw, "done", Qt::BlockingQueuedConnection);
         emit docClosed(ptr);
         return true;
     } else {

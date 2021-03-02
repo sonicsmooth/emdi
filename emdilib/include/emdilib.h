@@ -4,6 +4,7 @@
 #include "dbclone.h"
 #include "emdilib_global.h"
 #include "idocument.h"
+#include "docthreadwrapper.h"
 
 #include <QEvent>
 #include <QFocusEvent>
@@ -211,6 +212,7 @@ private:
     QDockWidgetFn_t m_dockWidgetCtor;
     bool m_lastOutsideState;
     QStackedWidget *m_dragFrame;   // to mdiSubWindow contents while dragging
+    std::map<IDocument *, DocThreadWrapper *> m_wrappers;
 
     void _dbInitDb();
     DocRecord _dbAddDocument(const IDocument *);
@@ -254,6 +256,9 @@ public:
     void setDockWidgetCtor(const QDockWidgetFn_t &);
     QMainWindow *newMainWindow();
     Q_INVOKABLE void openDocument(IDocument *);
+    Q_INVOKABLE void addWrapper(IDocument *, DocThreadWrapper *);
+    Q_INVOKABLE DocThreadWrapper *getWrapper(IDocument *);
+
     void closeAll();
     bool closeDocument();
     bool closeDocument(const std::string &);
