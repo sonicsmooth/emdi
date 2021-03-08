@@ -221,6 +221,7 @@ Emdi::Emdi() :
 
 Emdi::~Emdi() {
     // Close all documents
+    qDebug() << "Emdi::~Emdi()";
     QString docsToCloseStr = QString("SELECT * FROM docs;");
     auto docsToClose = getRecords<DocRecord>(docsToCloseStr);
     if (docsToClose.size()) {
@@ -886,12 +887,23 @@ void Emdi::openDocument(IDocument *doc) {
     // Todo: start using DocThreadWrapper and do invokeMethod
     // instead of direct calls on IDocument *.
     // Don't allow nameless docs to be added
-    std::string n = doc->name();
-    assert(n.size());
+    qDebug() << "Emdi::openDocument" << QThread::currentThread();
+    DocThreadWrapper *dtw = getWrapper(doc);
+    std::string docname;
+    QMetaObject::invokeMethod(dtw, "name",
+                              Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(std::string, docname));
+    assert(docname.size());
     // Ensure doc is open, then get a view
-    bool oldActive = doc->isActive(); // remember for a few lines
-    if (!oldActive)
-        doc->init(); // generic version of "open"
+    bool oldActive;
+    QMetaObject::invokeMethod(dtw, "isActive",
+                              Qt::BlockingQueuedConnection,
+                              Q_RETURN_ARG(bool, oldActive));
+
+    if (!oldActive) {
+        QMetaObject::invokeMethod(dtw, "init",
+                                  Qt::BlockingQueuedConnection);
+    }
     _dbAddDocument(doc);
     // emit done_open or something
 }
@@ -925,6 +937,7 @@ bool Emdi::closeDocument(const std::string & name) {
     }
 }
 bool Emdi::closeDocument(IDocument *ptr) {
+    qDebug() << "Emdi::closeDocument" << QThread::currentThread();
     if (_dbRemoveDocument(ptr)) {
         // Remove doc from db, close, notify listeners
         DocThreadWrapper *dtw = getWrapper(ptr);
